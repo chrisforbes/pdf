@@ -4,10 +4,9 @@ struct PdfObject
 {
 	char const * ptr;
 	size_t generation;
-	bool deleted;
 
 	PdfObject()
-		: ptr(0), generation(0), deleted(false) {}
+		: ptr(0), generation(0) {}
 };
 
 class MappedFile
@@ -156,12 +155,11 @@ bool ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,P
 			
 			PdfObject& obj = m[objIndex];
 			
-			if (obj.deleted)
+			if (obj.generation > b)
 				continue;
 
-			obj.ptr = f.F() + a;
+			obj.ptr = *p == 'f' ? 0 : f.F() + a;
 			obj.generation = b;
-			obj.deleted = *p == 'f';
 		}
 
 		p = nextLine;
@@ -224,6 +222,10 @@ void LoadFile( HWND appHwnd, wchar_t const * filename )
 		MsgBox( L"Bogus xref section" );
 		return;
 	}
+
+	wchar_t sz[512];
+	wsprintf( sz, L"num xref objects: %u", objmap.size() );
+	MsgBox( sz );
 
 	MsgBox( L"Got here" );
 }
