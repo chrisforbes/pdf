@@ -1,5 +1,6 @@
 #include "pch.h"
-#include "token.h"
+//#include "token.h"
+#include "parse.h"
 
 // todo: awesome joke somewhere about RDF = reality distortion field
 
@@ -172,23 +173,24 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<
 void ReadPdfTrailerSection( MappedFile const & f, char const * p )
 {
 	p = GetPdfNextLine( f, p );
-	char const * end = p;
+	//char const * end = p;
 
-	size_t nDicts = 0;
-	for(;;)
-	{
-		token_e::token_e t = (token_e::token_e)Parse( p, end );
-		if (t == token_e::DictStart)
-			++nDicts;
+	PObject trailerDict = Parse( p );
+	//size_t nDicts = 0;
+	//for(;;)
+	//{
+	//	token t = Token( p, end );
+	//	if (t == token_e::DictStart)
+	//		++nDicts;
 
-		if (t == token_e::DictEnd)
-			--nDicts;
+	//	if (t == token_e::DictEnd)
+	//		--nDicts;
 
-		p = end;
+	//	p = end;
 
-		if (!nDicts)
-			return;
-	}
+	//	if (!nDicts)
+	//		return;
+	//}
 }
 
 #define MsgBox( msg )\

@@ -25,6 +25,6 @@ enum token_e
 	HexString,
 };
 }
-//using token_e::token_e;
+typedef token_e::token_e token;
 
-extern int Parse( const char*& p, const char *& end );
+extern token Token( const char*& p, const char *& end );

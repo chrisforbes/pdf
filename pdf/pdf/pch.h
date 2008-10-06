@@ -5,3 +5,7 @@
 #include <shellapi.h>
 #include <string>
 #include <map>
+
+#include <boost/shared_ptr.hpp>
+
+//#include "types.h"

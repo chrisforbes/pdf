@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "token.h"
 
-int Parse( const char*& p, const char *& end )
+token Token( const char*& p, const char *& end )
 {
 	for(;;)
 	{
