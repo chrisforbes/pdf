@@ -1,17 +1,8 @@
 #include "pch.h"
-//#include "token.h"
+#include "token.h"
 #include "parse.h"
 
 // todo: awesome joke somewhere about RDF = reality distortion field
-
-struct PdfObject
-{
-	char const * ptr;
-	size_t generation;
-
-	PdfObject()
-		: ptr(0), generation(0) {}
-};
 
 class MappedFile
 {
@@ -115,7 +106,7 @@ char const * GetPdfNextLine( MappedFile const & f, char const * p )
 	return p;
 }
 
-char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,PdfObject>& m )
+char const * ReadPdfXrefSection( MappedFile const & f, char const * p, XrefTable& m )
 {
 	p = GetPdfNextLine(f,p);	// `xref` line
 
@@ -157,7 +148,7 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<
 		{
 			size_t objIndex = currentObjIndex++;
 			
-			PdfObject& obj = m[objIndex];
+			Xref& obj = m[objIndex];
 			
 			if (obj.generation > b)
 				continue;
@@ -170,10 +161,71 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<
 	}
 }
 
-void ReadPdfTrailerSection( MappedFile const & f, char const * p )
+PObject ParseIndirectObject( Indirect * i, char const * p )
+{
+	PObject objNum = Parse( p );
+	PObject objGen = Parse( p );
+
+	if (objNum->Type() != ObjectType::Number || objGen->Type() != ObjectType::Number)
+		DebugBreak();
+
+	int num = ((Number *)objNum.get())->num;
+	int gen = ((Number *)objGen.get())->num;
+
+	if (i->objectNum != num || i->generation != gen)
+		DebugBreak();
+
+	char const * tokenStart = p;
+	if (token_e::KeywordObj != Token( p, tokenStart ))
+		DebugBreak();
+
+	PObject o = Parse( p );
+
+	// todo: attach dict to stream
+
+	if (token_e::KeywordEndObj != Token( p, tokenStart ))
+		DebugBreak();
+
+	return o;
+}
+
+void ReadPdfTrailerSection( MappedFile const & f, XrefTable const & objmap, char const * p )
 {
 	p = GetPdfNextLine( f, p );
 	PObject trailerDict = Parse( p );
+
+	Dictionary * dict = (Dictionary *) trailerDict.get();
+	
+	PObject root = dict->Get( "Root" );
+	if (root && root->Type() == ObjectType::Ref)
+	{
+		Indirect * rootI = (Indirect *)root.get();
+		char const * rootPtr = rootI->Resolve( objmap );
+
+		PObject rootDict = ParseIndirectObject( rootI, rootPtr );
+		if (rootDict->Type() != ObjectType::Dictionary)
+		{
+			MessageBox( 0, L"Root object fails at being a dict", L"Fail", 0 );
+			return;
+		}
+
+		Indirect * outlineI = (Indirect *)((Dictionary *)rootDict.get())->Get( "Outlines" ).get();
+		if (!outlineI)
+		{
+			MessageBox( 0, L"No outline", L"fail", 0 );
+			return;
+		}
+
+		char const * outlineP = outlineI->Resolve( objmap );
+
+		PObject outlineDict = ParseIndirectObject( outlineI, outlineP );
+		if (outlineDict->Type() != ObjectType::Dictionary)
+		{
+			MessageBox( 0, L"Outline object fails at being a dict", L"Fail", 0 );
+		}
+
+
+	}
 }
 
 #define MsgBox( msg )\
@@ -225,7 +277,7 @@ void LoadFile( HWND appHwnd, wchar_t const * filename )
 		return;
 	}
 
-	std::map<size_t,PdfObject> objmap;
+	XrefTable objmap;
 
 	char const * trailer = ReadPdfXrefSection( f, xref, objmap );
 	if (!trailer)
@@ -234,7 +286,7 @@ void LoadFile( HWND appHwnd, wchar_t const * filename )
 		return;
 	}
 
-	ReadPdfTrailerSection( f, trailer );
+	ReadPdfTrailerSection( f, objmap, trailer );
 
 	wchar_t sz[512];
 	wsprintf( sz, L"num xref objects: %u", objmap.size() );

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "token.h"
 
-token Token( const char*& p, const char *& /*out*/ tokenStart )
+static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 {
 	for(;;)
 	{
@@ -53,6 +53,9 @@ token Token( const char*& p, const char *& /*out*/ tokenStart )
 		case '8':
 		case '9':
 		case '.':
+		case '+':
+		case '-':
+			++p;
 			while( memchr( ".0123456789", *p, 11 ) )
 				++p;
 			return token_e::NumberInt;
@@ -72,14 +75,34 @@ token Token( const char*& p, const char *& /*out*/ tokenStart )
 			++p;
 			return token_e::Unknown;
 
-		case 'R':
-			++p;
-			return token_e::Ref;
-
 		default:
 			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
 				++p;
-			return token_e::KeywordObj;	// TODO: the right keyword token
+			return token_e::Keyword;	// TODO: the right keyword token
 		}
 	}
+}
+
+#define MATCH_KEYWORD( k, tok )\
+	if (p - start == sizeof(k) - 1)\
+		if (memcmp( start, k, sizeof(k) - 1 ) == 0)\
+			return tok;
+
+token Token( const char *& p, const char *& start )
+{
+	token t = InnerToken( p, start );
+	if (t == token_e::Keyword)
+	{
+		MATCH_KEYWORD( "R", token_e::Ref );
+		MATCH_KEYWORD( "obj", token_e::KeywordObj );
+		MATCH_KEYWORD( "endobj", token_e::KeywordEndObj );
+		MATCH_KEYWORD( "stream", token_e::Stream );
+		MATCH_KEYWORD( "endstream", token_e::EndStream );
+		MATCH_KEYWORD( "true", token_e::True );
+		MATCH_KEYWORD( "false", token_e::False );
+
+		DebugBreak();
+	}
+
+	return t;
 }

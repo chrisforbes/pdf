@@ -1,5 +1,20 @@
 #pragma once
 
+namespace ObjectType
+{
+enum ObjectType
+{
+	Array,
+	Dictionary,
+	Ref,
+	Name,
+	Bool,
+	Number,
+	String,
+	Stream,
+};
+}
+
 class Object;
 typedef boost::shared_ptr<Object> PObject;
 
@@ -18,10 +33,26 @@ typedef boost::shared_ptr<String> PString;
 class Indirect;
 typedef boost::shared_ptr<Indirect> PIndirect;
 
+struct Xref
+{
+	char const * ptr;
+	size_t generation;
+
+	Xref()
+		: ptr(0), generation(0) {}
+};
+
+typedef std::map<size_t, Xref> XrefTable;
+
 class Object
 {
-	//TODO: type-test fns so we don't need rtti.
+public:
+	virtual ~Object() {}
+	virtual ObjectType::ObjectType Type() const = 0;
 };
+
+#define IMPLEMENT_OBJECT_TYPE( t )\
+	ObjectType::ObjectType Type() const { return ObjectType::t; }
 
 class Array : public Object
 {
@@ -36,6 +67,8 @@ public:
 	{
 		elements.push_back( obj );
 	}
+
+	IMPLEMENT_OBJECT_TYPE( Array );
 };
 
 class String : public Object
@@ -49,12 +82,16 @@ public:
 	{
 	}
 
+	String( char const * literalString )
+		: start( literalString ), end( literalString + strlen( literalString ) )
+	{}
+
 	bool operator==( const String& other ) const
 	{
 		if( end-start != other.end-other.start )
 			return false;
 
-		memcmp( start, other.start, end-start );
+		return 0 == memcmp( start, other.start, end-start );
 	}
 
 	bool operator<( const String& other ) const
@@ -80,6 +117,8 @@ public:
 			++b;
 		}
 	}
+
+	IMPLEMENT_OBJECT_TYPE( String );
 };
 
 class Name : public Object
@@ -91,6 +130,8 @@ public:
 		: str( str )
 	{
 	}
+
+	IMPLEMENT_OBJECT_TYPE( Name );
 };
 
 class Number : public Object
@@ -109,6 +150,8 @@ public:
 		: num( other.num )
 	{
 	}
+
+	IMPLEMENT_OBJECT_TYPE( Number );
 };
 
 class Dictionary : public Object
@@ -124,10 +167,17 @@ public:
 		return PObject();
 	}
 
+	PObject Get( char const * literalString )
+	{
+		return Get( Name( String( literalString ) ) );
+	}
+
 	void Add( const Name& key, const PObject& value )
 	{
 		dict[ key.str ] = value;
 	}
+
+	IMPLEMENT_OBJECT_TYPE( Dictionary );
 };
 
 class Indirect : public Object
@@ -140,4 +190,15 @@ public:
 		: objectNum( objectNum.num ), generation( generation.num )
 	{
 	}
+
+	char const * Resolve( XrefTable const & t )
+	{
+		XrefTable::const_iterator it = t.find( objectNum );
+		if (it == t.end() || it->second.generation != generation)
+			return 0;
+
+		return it->second.ptr;
+	}
+
+	IMPLEMENT_OBJECT_TYPE( Ref );
 };
