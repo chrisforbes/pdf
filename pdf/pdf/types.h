@@ -9,7 +9,8 @@ class Dictionary;
 typedef boost::shared_ptr<Dictionary> PDictionary;
 class Name;
 typedef boost::shared_ptr<Name> PName;
-//class Number;
+class Number;
+typedef boost::shared_ptr<Number> PNumber;
 //class Stream;
 class String;
 typedef boost::shared_ptr<String> PString;
@@ -71,6 +72,19 @@ public:
 	Name( const String& str )
 		: str( str )
 	{
+	}
+};
+
+class Number : public Object
+{
+public:
+	int num;
+
+	Number( const char* start, const char* end )
+	{
+		char* e = const_cast<char*>( end );
+		strtol( start, &e, 10 );
+		assert( e == end );
 	}
 };
 

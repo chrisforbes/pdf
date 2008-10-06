@@ -173,24 +173,7 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<
 void ReadPdfTrailerSection( MappedFile const & f, char const * p )
 {
 	p = GetPdfNextLine( f, p );
-	//char const * end = p;
-
 	PObject trailerDict = Parse( p );
-	//size_t nDicts = 0;
-	//for(;;)
-	//{
-	//	token t = Token( p, end );
-	//	if (t == token_e::DictStart)
-	//		++nDicts;
-
-	//	if (t == token_e::DictEnd)
-	//		--nDicts;
-
-	//	p = end;
-
-	//	if (!nDicts)
-	//		return;
-	//}
 }
 
 #define MsgBox( msg )\

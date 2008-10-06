@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "token.h"
 
-token Token( const char*& p, const char *& end )
+token Token( const char*& p, const char *& /*out*/ tokenStart )
 {
 	for(;;)
 	{
+		tokenStart = p;
 		switch( *p )
 		{
 		case ' ':
@@ -21,25 +22,24 @@ token Token( const char*& p, const char *& end )
 		case '<':
 			if( p[1] == '<' )
 			{
-				end = p + 2;
+				p += 2;
 				return token_e::DictStart;
 			}
 			
-			end = p;
-			while( *end++ != '>' ) {}
+			while( *p++ != '>' ) {}
 			return token_e::HexString;
 
 		case '>':
 			if( p[1] == '>' )
 			{
-				end = p + 2;
+				p += 2;
 				return token_e::DictEnd;
 			}
 			DebugBreak();	// noti
 		case '/':
-			end = ++p;
-			while( !memchr( "\t\r\v\n (){}[]<>/?%", *end, 17 ) )
-				++end;
+			tokenStart = ++p;
+			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
+				++p;
 			return token_e::Name;
 
 		case '0':
@@ -53,9 +53,8 @@ token Token( const char*& p, const char *& end )
 		case '8':
 		case '9':
 		case '.':
-			end = p;
-			while( memchr( ".0123456789", *end, 11 ) )
-				++end;
+			while( memchr( ".0123456789", *p, 11 ) )
+				++p;
 			return token_e::NumberInt;
 
 		case '(':
@@ -66,13 +65,12 @@ token Token( const char*& p, const char *& end )
 		case ')':
 		case '}':
 			// TODO
-			end = p + 1;
+			++p;
 			return token_e::Unknown;
 
 		default:
-			end = p;
-			while( !memchr( "\t\r\v\n (){}[]<>/?%", *end, 17 ) )
-				++end;
+			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
+				++p;
 			return token_e::KeywordObj;	// TODO: the right keyword token
 		}
 	}
