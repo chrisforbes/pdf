@@ -175,6 +175,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\obj_parser.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\pch.cpp"
 			>
 			<FileConfiguration
@@ -189,6 +193,10 @@
 		</File>
 		<File
 			RelativePath=".\pch.h"
+			>
+		</File>
+		<File
+			RelativePath=".\token.h"
 			>
 		</File>
 	</Files>

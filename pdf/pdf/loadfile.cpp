@@ -1,4 +1,7 @@
 #include "pch.h"
+#include "token.h"
+
+// todo: awesome joke somewhere about RDF = reality distortion field
 
 struct PdfObject
 {
@@ -111,7 +114,7 @@ char const * GetPdfNextLine( MappedFile const & f, char const * p )
 	return p;
 }
 
-bool ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,PdfObject>& m )
+char const * ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,PdfObject>& m )
 {
 	p = GetPdfNextLine(f,p);	// `xref` line
 
@@ -120,7 +123,7 @@ bool ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,P
 	for(;;)
 	{
 		if (!::memcmp( p, "trailer", 7 ))
-			return true;	// we're done
+			return p;	// we're done
 
 		char const * nextLine = GetPdfNextLine(f,p);
 		char * q = const_cast<char *>(nextLine);
@@ -131,16 +134,16 @@ bool ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,P
 			continue;
 		}
 
-		long a = ::strtol( p, &q, 10 );
+		size_t a = ::strtol( p, &q, 10 );
 		if (!q || p == q)
-			return false;
+			return 0;
 
 		p = q;
 		q = const_cast<char *>(nextLine);
 
-		long b = ::strtol( p, &q, 10 );
+		size_t b = ::strtol( p, &q, 10 );
 		if (!q || p == q)
-			return false;
+			return 0;
 
 		p = q;
 		while( *p == ' ' ) ++p;		// eat the spaces
@@ -163,6 +166,28 @@ bool ReadPdfXrefSection( MappedFile const & f, char const * p, std::map<size_t,P
 		}
 
 		p = nextLine;
+	}
+}
+
+void ReadPdfTrailerSection( MappedFile const & f, char const * p )
+{
+	p = GetPdfNextLine( f, p );
+	char const * end = p;
+
+	size_t nDicts = 0;
+	for(;;)
+	{
+		token_e::token_e t = (token_e::token_e)Parse( p, end );
+		if (t == token_e::DictStart)
+			++nDicts;
+
+		if (t == token_e::DictEnd)
+			--nDicts;
+
+		p = end;
+
+		if (!nDicts)
+			return;
 	}
 }
 
@@ -217,11 +242,14 @@ void LoadFile( HWND appHwnd, wchar_t const * filename )
 
 	std::map<size_t,PdfObject> objmap;
 
-	if (!ReadPdfXrefSection( f, xref, objmap ))
+	char const * trailer = ReadPdfXrefSection( f, xref, objmap );
+	if (!trailer)
 	{
 		MsgBox( L"Bogus xref section" );
 		return;
 	}
+
+	ReadPdfTrailerSection( f, trailer );
 
 	wchar_t sz[512];
 	wsprintf( sz, L"num xref objects: %u", objmap.size() );
