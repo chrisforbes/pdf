@@ -161,7 +161,7 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, XrefTable
 	}
 }
 
-PObject ParseIndirectObject( Indirect * i, char const * p )
+PObject InnerParseIndirectObject( Indirect * i, char const * p )
 {
 	PObject objNum = Parse( p );
 	PObject objGen = Parse( p );
@@ -189,7 +189,29 @@ PObject ParseIndirectObject( Indirect * i, char const * p )
 	return o;
 }
 
-void ReadPdfTrailerSection( MappedFile const & f, XrefTable const & objmap, char const * p )
+PObject ParseIndirectObject( Indirect * i, char const * p, XrefTable & objmap )
+{
+	XrefTable::iterator it = objmap.find( i->objectNum );
+	// `it` is guaranteed to exist if we're here
+
+	if (!it->second.cache)
+		it->second.cache = InnerParseIndirectObject( i, p );
+
+	return it->second.cache;
+}
+
+PObject Object::ResolveIndirect( PObject p, XrefTable &t )
+{
+	if (!p || p->Type() != ObjectType::Ref)
+		return p;
+
+	Indirect * i = (Indirect *)p.get();
+	char const * ptr = i->Resolve( t );
+
+	return ParseIndirectObject( i, ptr, t );
+}
+
+void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p )
 {
 	p = GetPdfNextLine( f, p );
 	PObject trailerDict = Parse( p );
@@ -202,29 +224,36 @@ void ReadPdfTrailerSection( MappedFile const & f, XrefTable const & objmap, char
 		Indirect * rootI = (Indirect *)root.get();
 		char const * rootPtr = rootI->Resolve( objmap );
 
-		PObject rootDict = ParseIndirectObject( rootI, rootPtr );
+		Dictionary * rootDict = (Dictionary *)ParseIndirectObject( rootI, rootPtr, objmap ).get();
 		if (rootDict->Type() != ObjectType::Dictionary)
 		{
 			MessageBox( 0, L"Root object fails at being a dict", L"Fail", 0 );
 			return;
 		}
 
-		Indirect * outlineI = (Indirect *)((Dictionary *)rootDict.get())->Get( "Outlines" ).get();
-		if (!outlineI)
+		Dictionary * outlineDict = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Outlines" ), objmap ).get();
+		if (!outlineDict || outlineDict->Type() != ObjectType::Dictionary)
 		{
-			MessageBox( 0, L"No outline", L"fail", 0 );
+			MessageBox( 0, L"No (or bogus) outline", L"fail", 0 );
 			return;
 		}
 
-		char const * outlineP = outlineI->Resolve( objmap );
-
-		PObject outlineDict = ParseIndirectObject( outlineI, outlineP );
-		if (outlineDict->Type() != ObjectType::Dictionary)
+		Dictionary * outlineItem = (Dictionary *)Object::ResolveIndirect( outlineDict->Get( "First" ), objmap ).get();
+		
+		while( outlineItem )
 		{
-			MessageBox( 0, L"Outline object fails at being a dict", L"Fail", 0 );
+			String * itemTitle = (String *)Object::ResolveIndirect( outlineItem->Get( "Title" ), objmap ).get();
+			
+			char temp[1024];	// todo: fix this
+			size_t len = itemTitle->end - itemTitle->start;
+			memcpy( temp, itemTitle->start, len );
+			temp[ len ] = 0;
+
+			MessageBoxA( 0, temp, "Outline item", 0 );
+
+			// move to next item
+			outlineItem = (Dictionary *)Object::ResolveIndirect( outlineItem->Get( "Next" ), objmap ).get();
 		}
-
-
 	}
 }
 

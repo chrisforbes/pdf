@@ -13,6 +13,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case '\r':
 		case '\t':
 		case '\v':
+		case ')':
 			++p;
 			continue;
 		case '%':
@@ -66,10 +67,33 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case ']':
 			++p;
 			return token_e::ArrayEnd;
+
+		case '(':
+			tokenStart = ++p;
+			{
+				int nparens = 1;
+				while( nparens )
+				{
+					switch( *p )
+					{
+					case '(':
+						++nparens;
+						break;
+					case ')':
+						--nparens;
+						break;
+					case '\\':
+						++p;
+						break;
+					}
+					++p;
+				}
+				--p;
+				return token_e::String;
+			}
+
 		case '{':
 		case '}':
-		case '(':
-		case ')':
 		case '?':
 			// TODO
 			++p;

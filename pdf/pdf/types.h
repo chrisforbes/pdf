@@ -37,6 +37,7 @@ struct Xref
 {
 	char const * ptr;
 	size_t generation;
+	PObject cache;
 
 	Xref()
 		: ptr(0), generation(0) {}
@@ -44,11 +45,15 @@ struct Xref
 
 typedef std::map<size_t, Xref> XrefTable;
 
+extern PObject ParseIndirectObject( Indirect * i, char const * p, XrefTable & objmap );
+
 class Object
 {
 public:
 	virtual ~Object() {}
 	virtual ObjectType::ObjectType Type() const = 0;
+
+	static PObject ResolveIndirect( PObject p, XrefTable & t );
 };
 
 #define IMPLEMENT_OBJECT_TYPE( t )\
@@ -73,10 +78,10 @@ public:
 
 class String : public Object
 {
-	const char* start;
-	const char* end;
-
 public:
+	const char* const start;
+	const char* const end;
+
 	String( const char* start, const char* end )
 		: start( start ), end( end )
 	{

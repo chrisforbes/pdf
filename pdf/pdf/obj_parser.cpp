@@ -32,6 +32,9 @@ PObject Parse( const char*& p )
 		// TODO:
 		return PString();
 
+	case token_e::String:
+		return PString( new String( tokenStart, p ) );
+
 	default:
 		return PObject();
 	}
