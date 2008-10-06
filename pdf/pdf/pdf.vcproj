@@ -175,7 +175,7 @@
 			>
 		</File>
 		<File
-			RelativePath=".\obj_parser.cpp"
+			RelativePath=".\obj_tokenizer.cpp"
 			>
 		</File>
 		<File
