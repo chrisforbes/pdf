@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <string>
+#include <vector>
 #include <map>
 
 #include <boost/shared_ptr.hpp>

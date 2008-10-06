@@ -5,14 +5,35 @@
 PObject Parse( const char*& p )
 {
 	const char* tokenStart = 0;
-	switch( Token( p, tokenStart ) )
+	token t = Token( p, tokenStart );
+	switch( t )
 	{
 	case token_e::DictStart:
 		return ParseDict( p );
 	case token_e::NumberInt:
-		return PNumber( new Number( tokenStart, p ) );
+		{
+			Number ret( tokenStart, p );
+			const char* lookahead = p;
+			if( Token( lookahead, tokenStart ) == token_e::NumberInt )
+			{
+				Number generation( tokenStart, lookahead );
+				if( Token( lookahead, tokenStart ) == token_e::Ref )
+				{
+					p = lookahead;
+					return PObject( new Indirect( ret, generation ) );
+				}
+			}
+			return PObject( new Number( ret ) );
+		}
+	case token_e::ArrayStart:
+		return ParseArray( p );
+
+	case token_e::HexString:
+		// TODO:
+		return PString();
+
 	default:
-		return boost::shared_ptr<Object>();
+		return PObject();
 	}
 }
 
@@ -22,7 +43,8 @@ PDictionary ParseDict( const char*& p )
 	const char* tokenStart = 0;
 	for(;;)
 	{
-		switch( Token( p, tokenStart ) )
+		token t = Token( p, tokenStart );
+		switch( t )
 		{
 		case token_e::Name:
 			{
@@ -35,5 +57,19 @@ PDictionary ParseDict( const char*& p )
 		default:
 			return PDictionary();
 		}
+	}
+}
+
+PArray ParseArray( const char*& p )
+{
+	PArray array( new Array() );
+
+	for(;;)
+	{
+		const char* tokenStart = 0;
+		if( Token( p, tokenStart ) == token_e::ArrayEnd )
+			return array;
+
+		array->Add( Parse( p ) );
 	}
 }

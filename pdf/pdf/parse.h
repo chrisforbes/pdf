@@ -2,5 +2,6 @@
 
 #include "types.h"
 
-PObject Parse( const char*& start );
-PDictionary ParseDict( const char*& start );
+PObject Parse( const char*& p );
+PDictionary ParseDict( const char*& p );
+PArray ParseArray( const char*& p );

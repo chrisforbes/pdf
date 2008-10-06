@@ -3,7 +3,8 @@
 class Object;
 typedef boost::shared_ptr<Object> PObject;
 
-//class Array;
+class Array;
+typedef boost::shared_ptr<Array> PArray;
 //class Bool;
 class Dictionary;
 typedef boost::shared_ptr<Dictionary> PDictionary;
@@ -14,10 +15,27 @@ typedef boost::shared_ptr<Number> PNumber;
 //class Stream;
 class String;
 typedef boost::shared_ptr<String> PString;
+class Indirect;
+typedef boost::shared_ptr<Indirect> PIndirect;
 
 class Object
 {
 	//TODO: type-test fns so we don't need rtti.
+};
+
+class Array : public Object
+{
+public:
+	std::vector<PObject> elements;
+
+	Array()
+	{
+	}
+
+	void Add( const PObject& obj )
+	{
+		elements.push_back( obj );
+	}
 };
 
 class String : public Object
@@ -83,8 +101,13 @@ public:
 	Number( const char* start, const char* end )
 	{
 		char* e = const_cast<char*>( end );
-		strtol( start, &e, 10 );
+		num = strtol( start, &e, 10 );
 		assert( e == end );
+	}
+
+	Number( const Number& other )
+		: num( other.num )
+	{
 	}
 };
 
@@ -101,8 +124,20 @@ public:
 		return PObject();
 	}
 
-	void Add( const Name& key, PObject value )
+	void Add( const Name& key, const PObject& value )
 	{
 		dict[ key.str ] = value;
+	}
+};
+
+class Indirect : public Object
+{
+public:
+	int objectNum;
+	int generation;
+
+	Indirect( const Number& objectNum, const Number& generation )
+		: objectNum( objectNum.num ), generation( generation.num )
+	{
 	}
 };

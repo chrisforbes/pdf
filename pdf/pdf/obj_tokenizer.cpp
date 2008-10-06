@@ -57,16 +57,24 @@ token Token( const char*& p, const char *& /*out*/ tokenStart )
 				++p;
 			return token_e::NumberInt;
 
-		case '(':
 		case '[':
-		case '{':
-		case '?':
+			++p;
+			return token_e::ArrayStart;
 		case ']':
-		case ')':
+			++p;
+			return token_e::ArrayEnd;
+		case '{':
 		case '}':
+		case '(':
+		case ')':
+		case '?':
 			// TODO
 			++p;
 			return token_e::Unknown;
+
+		case 'R':
+			++p;
+			return token_e::Ref;
 
 		default:
 			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
