@@ -102,7 +102,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		default:
 			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
 				++p;
-			return token_e::Keyword;	// TODO: the right keyword token
+			return token_e::Keyword;
 		}
 	}
 }

@@ -29,7 +29,7 @@ PObject Parse( const char*& p )
 		return ParseArray( p );
 
 	case token_e::HexString:
-		// TODO:
+		// TODO: actually parse this thing
 		return PString();
 
 	case token_e::String:
