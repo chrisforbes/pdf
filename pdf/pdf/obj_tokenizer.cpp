@@ -124,6 +124,7 @@ token Token( const char *& p, const char *& start )
 		MATCH_KEYWORD( "endstream", token_e::EndStream );
 		MATCH_KEYWORD( "true", token_e::True );
 		MATCH_KEYWORD( "false", token_e::False );
+		MATCH_KEYWORD( "null", token_e::Null );
 
 		DebugBreak();
 	}

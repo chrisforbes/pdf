@@ -69,10 +69,11 @@ PArray ParseArray( const char*& p )
 
 	for(;;)
 	{
+		char const * q = p;
 		const char* tokenStart = 0;
 		if( Token( p, tokenStart ) == token_e::ArrayEnd )
 			return array;
-
+		p = q;
 		array->Add( Parse( p ) );
 	}
 }
