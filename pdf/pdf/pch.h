@@ -9,4 +9,4 @@
 
 #include <boost/shared_ptr.hpp>
 
-//#include "types.h"
+#pragma warning( disable: 4996 )

@@ -57,63 +57,121 @@ char const * GetPdfNextLine( MappedFile const & f, char const * p )
 	return p;
 }
 
+const char * ReadPdfXrefSubsection( const MappedFile& file, const char* p, XrefTable& m )
+{
+	const char* q = GetPdfNextLine( file, p );
+
+	char* tokEnd = const_cast<char*>( q );
+	size_t first = strtoul( p, &tokEnd, 10 );
+	if( !tokEnd || tokEnd == p )
+		return 0;
+
+	p = tokEnd;
+	while( *p == ' ' )
+		++p;
+
+	tokEnd = const_cast<char*>( q );
+	size_t count = strtoul( p, &tokEnd, 10 );
+	if( !tokEnd || tokEnd == p )
+		return 0;
+
+	p = q;
+
+	if( m.size() < first+count )
+		m.insert( m.end(), first + count - m.size(), Xref() );
+
+	size_t end = first + count;
+
+	for( ; first < end ; first++ )
+	{
+		q = GetPdfNextLine( file, p );
+		tokEnd = const_cast<char*>( q );
+		size_t fileOffset = strtoul( p, &tokEnd, 10 );
+		if( tokEnd != p + 10 )
+			return 0;
+
+		p += 11;
+		tokEnd = const_cast<char*>( q );
+		int generation = strtol( p, &tokEnd, 10 );
+		if( tokEnd != p + 5 )
+			return 0;
+
+		m[first].generation = generation;
+		if( p[6] == 'f' )
+			m[first].ptr = 0;
+		else
+			m[first].ptr = file.F() + fileOffset;
+
+		p = q;
+	}
+	return p;
+}
+
 char const * ReadPdfXrefSection( MappedFile const & f, char const * p, XrefTable& m )
 {
 	p = GetPdfNextLine(f,p);	// `xref` line
 
-	size_t currentObjIndex = 0;
+	while( p && ::memcmp( p, "trailer", 7 ) != 0 )
+		p = ReadPdfXrefSubsection( f, p, m );
 
-	for(;;)
-	{
-		if (!::memcmp( p, "trailer", 7 ))
-			return p;	// we're done
+	return p;
 
-		char const * nextLine = GetPdfNextLine(f,p);
-		char * q = const_cast<char *>(nextLine);
+	//size_t currentObjIndex = 0;
 
-		if (*p == '\r' || *p == '\n')
-		{
-			p = nextLine;
-			continue;
-		}
+	//for(;;)
+	//{
+	//	if (!::memcmp( p, "trailer", 7 ))
+	//		return p;	// we're done
 
-		size_t a = ::strtol( p, &q, 10 );
-		if (!q || p == q)
-			return 0;
+	//	char const * nextLine = GetPdfNextLine(f,p);
+	//	char * q = const_cast<char *>(nextLine);
 
-		p = q;
-		q = const_cast<char *>(nextLine);
+	//	if (*p == '\r' || *p == '\n')
+	//	{
+	//		p = nextLine;
+	//		continue;
+	//	}
 
-		size_t b = ::strtol( p, &q, 10 );
-		if (!q || p == q)
-			return 0;
+	//	size_t a = ::strtol( p, &q, 10 );
+	//	if (!q || p == q)
+	//		return 0;
 
-		p = q;
-		while( *p == ' ' ) ++p;		// eat the spaces
+	//	p = q;
+	//	q = const_cast<char *>(nextLine);
 
-		if (*p == '\r' || *p == '\n')
-		{
-			currentObjIndex = a;
-		}
-		else
-		{
-			size_t objIndex = currentObjIndex++;
-			
-			Xref& obj = m[objIndex];
-			
-			if (obj.generation > b)
-				continue;
+	//	size_t b = ::strtol( p, &q, 10 );
+	//	if (!q || p == q)
+	//		return 0;
 
-			obj.ptr = *p == 'f' ? 0 : f.F() + a;
-			obj.generation = b;
-		}
+	//	p = q;
+	//	while( *p == ' ' ) ++p;		// eat the spaces
 
-		p = nextLine;
-	}
+	//	if (*p == '\r' || *p == '\n')
+	//	{
+	//		currentObjIndex = a;
+	//	}
+	//	else
+	//	{
+	//		size_t objIndex = currentObjIndex++;
+	//		
+	//		THIS_NEEDS_I;
+	//		Xref& obj = m[objIndex];
+	//		
+	//		if (obj.generation > b)
+	//			continue;
+
+	//		obj.ptr = *p == 'f' ? 0 : f.F() + a;
+	//		obj.generation = b;
+	//	}
+
+	//	p = nextLine;
+	//}
 }
 
-PObject InnerParseIndirectObject( Indirect * i, char const * p )
+PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 {
+	const char* p = i->Resolve( objmap );
+
 	PObject objNum = Parse( p );
 	PObject objGen = Parse( p );
 
@@ -133,64 +191,98 @@ PObject InnerParseIndirectObject( Indirect * i, char const * p )
 	PObject o = Parse( p );
 
 	// todo: attach dict to stream
+	token t = Token( p, tokenStart );
+	if ( t == token_e::KeywordEndObj )
+		return o;
+	else if ( t == token_e::Stream && o->Type() == ObjectType::Dictionary )
+	{
+		if( *p == '\r' )
+			++p;
+		if( *p != '\n' )
+			DebugBreak();
+		++p;
 
-	if (token_e::KeywordEndObj != Token( p, tokenStart ))
+		PDictionary dict = boost::shared_static_cast<Dictionary>( o );
+		Number* length = (Number*)Object::ResolveIndirect( dict->Get( "Length" ), objmap ).get();
+		return PStream( new Stream( dict, p, p+length->num ) );
+	}
+	else
 		DebugBreak();
-
-	return o;
 }
 
-PObject ParseIndirectObject( Indirect * i, char const * p, XrefTable & objmap )
+PObject ParseIndirectObject( Indirect * i, const XrefTable & objmap )
 {
-	XrefTable::iterator it = objmap.find( i->objectNum );
-	// `it` is guaranteed to exist if we're here
-
-	if (it == objmap.end())
+	size_t objNum = (size_t)i->objectNum;
+	if( objNum >= objmap.size() )
+	{
+		DebugBreak();
 		return PObject();
+	}
 
-	if (!it->second.cache)
-		it->second.cache = InnerParseIndirectObject( i, p );
+	const Xref& xref = objmap[ objNum ];
 
-	return it->second.cache;
+	if (!xref.cache)
+		xref.cache = InnerParseIndirectObject( i, objmap );
+
+	return xref.cache;
 }
 
-PObject Object::ResolveIndirect( PObject p, XrefTable &t )
+PObject Object::ResolveIndirect( PObject p, const XrefTable & objmap )
 {
 	if (!p || p->Type() != ObjectType::Ref)
 		return p;
 
-	Indirect * i = (Indirect *)p.get();
-	char const * ptr = i->Resolve( t );
-
-	return ParseIndirectObject( i, ptr, t );
+	return ParseIndirectObject( (Indirect *)p.get(), objmap );
 }
 
-static size_t physPageNumber;
-
-void WalkPageTree( Dictionary * start, XrefTable & t )
+void DumpPage( Dictionary * start, const XrefTable & objmap )
 {
-	Name * type = (Name *)Object::ResolveIndirect(start->Get( "Type" ), t).get();
+	PObject content = Object::ResolveIndirect( start->Get( "Contents" ), objmap );
+	if( !content )
+		return;
+
+	if( content->Type() == ObjectType::Stream )
+	{
+		//PStream stream = boost::shared_static_cast<Stream>( content );
+
+		//char filename[128];
+		//_snprintf( filename, 128, "page%u.txt", stream->start );
+
+		//HANDLE file = CreateFileA( filename, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
+		//DWORD numBytesWritten;
+		//WriteFile( file, stream->start, stream->end - stream->start, &numBytesWritten, NULL );
+		//CloseHandle( file );
+	}
+	else if( content->Type() == ObjectType::Array )
+	{
+		DebugBreak();
+	}
+	else
+		//Invalid file
+		DebugBreak();
+}
+
+void WalkPageTree( Dictionary * start, const XrefTable & objmap )
+{
+	Name * type = (Name *)Object::ResolveIndirect(start->Get( "Type" ), objmap).get();
 	if (!type || type->Type() != ObjectType::Name)
 		DebugBreak();
 
 	if (String( "Page" ) == type->str)
 	{
-		// leaf
-		char sz[64];
-		sprintf( sz, "Physical page %u\n", ++physPageNumber );
-		OutputDebugStringA( sz );
+		DumpPage( start, objmap );
 	}
 	else
 	{
-		Array * children = (Array *)Object::ResolveIndirect( start->Get( "Kids" ), t ).get();
+		Array * children = (Array *)Object::ResolveIndirect( start->Get( "Kids" ), objmap ).get();
 		if (!children || children->Type() != ObjectType::Array)
 			DebugBreak();
 
 		std::vector< PObject >::const_iterator it;
 		for( it = children->elements.begin(); it != children->elements.end(); it++ )
 		{
-			Dictionary * child = (Dictionary *)Object::ResolveIndirect( *it, t ).get();
-			WalkPageTree( child, t );
+			Dictionary * child = (Dictionary *)Object::ResolveIndirect( *it, objmap ).get();
+			WalkPageTree( child, objmap );
 		}
 	}
 }
@@ -210,7 +302,7 @@ void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, Dictionary *
 
 extern HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value );
 
-void BuildOutline( Dictionary * parent, HTREEITEM parentItem, XrefTable & objmap )
+void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & objmap )
 {
 	Dictionary * item = (Dictionary *)Object::ResolveIndirect( parent->Get( "First" ), objmap ).get();
 	
@@ -311,7 +403,7 @@ void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const
 	
 	Dictionary * pageTreeRoot = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Pages" ), objmap ).get();
 	assert( pageTreeRoot );
-	//WalkPageTree( pageTreeRoot, objmap );
+	WalkPageTree( pageTreeRoot, objmap );
 }
 
 #define MsgBox( msg )\

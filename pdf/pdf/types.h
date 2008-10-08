@@ -20,14 +20,16 @@ typedef boost::shared_ptr<Object> PObject;
 
 class Array;
 typedef boost::shared_ptr<Array> PArray;
-//class Bool;
+class Bool;
+typedef boost::shared_ptr<Bool> PBool;
 class Dictionary;
 typedef boost::shared_ptr<Dictionary> PDictionary;
 class Name;
 typedef boost::shared_ptr<Name> PName;
 class Number;
 typedef boost::shared_ptr<Number> PNumber;
-//class Stream;
+class Stream;
+typedef boost::shared_ptr<Stream> PStream;
 class String;
 typedef boost::shared_ptr<String> PString;
 class Indirect;
@@ -37,13 +39,13 @@ struct Xref
 {
 	char const * ptr;
 	size_t generation;
-	PObject cache;
+	mutable PObject cache;
 
 	Xref()
 		: ptr(0), generation(0) {}
 };
 
-typedef std::map<size_t, Xref> XrefTable;
+typedef std::vector<Xref> XrefTable;
 
 extern PObject ParseIndirectObject( Indirect * i, char const * p, XrefTable & objmap );
 
@@ -53,7 +55,7 @@ public:
 	virtual ~Object() {}
 	virtual ObjectType::ObjectType Type() const = 0;
 
-	static PObject ResolveIndirect( PObject p, XrefTable & t );
+	static PObject ResolveIndirect( PObject p, const XrefTable & t );
 };
 
 #define IMPLEMENT_OBJECT_TYPE( t )\
@@ -181,6 +183,9 @@ public:
 
 	void Add( const Name& key, const PObject& value )
 	{
+		if( !value )
+			DebugBreak();
+
 		dict[ key.str ] = value;
 	}
 
@@ -200,11 +205,15 @@ public:
 
 	char const * Resolve( XrefTable const & t )
 	{
-		XrefTable::const_iterator it = t.find( objectNum );
-		if (it == t.end() || it->second.generation != generation)
+		if( (size_t)objectNum >= t.size() )
 			return 0;
 
-		return it->second.ptr;
+		const Xref& xref = t[ objectNum ];
+
+		if( xref.generation != generation )
+			return 0;
+
+		return xref.ptr;
 	}
 
 	IMPLEMENT_OBJECT_TYPE( Ref );
@@ -228,4 +237,31 @@ public:
 		if (f)
 			delete f;
 	}
+};
+
+class Bool : public Object
+{
+public:
+	const bool value;
+	Bool( bool value )
+		: value( value )
+	{
+	}
+
+	IMPLEMENT_OBJECT_TYPE( Bool );
+};
+
+class Stream : public Object
+{
+public:
+	PDictionary dict;
+	const char* start;
+	const char* end;
+
+	Stream( const PDictionary& dict, const char* start, const char* end )
+		: dict( dict ), start( start ), end( end )
+	{
+	}
+
+	IMPLEMENT_OBJECT_TYPE( Stream );
 };

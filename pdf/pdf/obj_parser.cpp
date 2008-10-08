@@ -36,6 +36,14 @@ PObject Parse( const char*& p )
 	case token_e::String:
 		return PString( new String( tokenStart, p ) );
 
+	case token_e::True:
+		return PBool( new Bool( true ) );
+	case token_e::False:
+		return PBool( new Bool( false ) );
+
+	case token_e::Name:
+		return PName( new Name( String( tokenStart, p ) ) );
+
 	default:
 		return PObject();
 	}
