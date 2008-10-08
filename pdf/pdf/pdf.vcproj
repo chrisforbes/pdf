@@ -175,6 +175,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\mapped_file.h"
+			>
+		</File>
+		<File
 			RelativePath=".\obj_parser.cpp"
 			>
 		</File>
@@ -209,6 +213,10 @@
 		</File>
 		<File
 			RelativePath=".\types.h"
+			>
+		</File>
+		<File
+			RelativePath=".\wnd_utils.cpp"
 			>
 		</File>
 	</Files>

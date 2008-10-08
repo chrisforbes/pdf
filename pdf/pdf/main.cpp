@@ -1,4 +1,6 @@
 #include "pch.h"
+#include "mapped_file.h"
+#include "types.h"
 #include "commctrl.h"
 
 #include <atlbase.h>
@@ -7,34 +9,12 @@
 
 static wchar_t const * wndClassName = L"pdf-appwnd";
 static HWND appHwnd, outlineHwnd;
+static Document * doc = 0;
 
 RECT outlineRect = { 0, 0, 260, 0 };
 
-void AdjustControlPlacement( HWND parent, HWND child, WINDOWPOS * p, RECT controlAlignment )
-{
-	// DAMN this thing is crazy
-
-	RECT wndRect, clientRect, frameRect;
-	::GetWindowRect( parent, &wndRect );
-	::GetClientRect( parent, &clientRect );
-
-	if (p)
-	{
-		clientRect.right += p->cx - (wndRect.right - wndRect.left);
-		clientRect.bottom += p->cy - (wndRect.bottom - wndRect.top);
-	}
-
-	if (controlAlignment.left < 0) controlAlignment.left = clientRect.right - clientRect.left - controlAlignment.left;
-	if (controlAlignment.right <= 0) controlAlignment.left = clientRect.right - clientRect.left - controlAlignment.right;
-
-	if (controlAlignment.top < 0) controlAlignment.top = clientRect.bottom - clientRect.top - controlAlignment.top;
-	if (controlAlignment.bottom <= 0) controlAlignment.bottom = clientRect.bottom - clientRect.top - controlAlignment.bottom;
-
-	::SetWindowPos( child, 0, controlAlignment.left, controlAlignment.top, 
-		controlAlignment.right - controlAlignment.left,
-		controlAlignment.bottom - controlAlignment.top,
-		SWP_NOZORDER );
-}
+extern void AdjustControlPlacement( HWND parent, HWND child, WINDOWPOS * p, RECT controlAlignment );
+extern void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info );
 
 LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 {
@@ -46,7 +26,22 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 	case WM_WINDOWPOSCHANGING:
 		{
-			::AdjustControlPlacement( appHwnd, outlineHwnd, (WINDOWPOS *)lp, outlineRect );
+			WINDOWPOS * pos = (WINDOWPOS *)lp;
+			if ((pos->flags & SWP_NOSIZE) && (~pos->flags & SWP_SHOWWINDOW))
+				return ::DefWindowProc( hwnd, msg, wp, lp );
+
+			::AdjustControlPlacement( appHwnd, outlineHwnd, pos, outlineRect );
+			return ::DefWindowProc( hwnd, msg, wp, lp );
+		}
+
+	case WM_NOTIFY:
+		{
+			NMHDR * hdr = (NMHDR *) lp;
+			if (hdr->hwndFrom == outlineHwnd)
+			{
+				if (hdr->code == TVN_SELCHANGED)
+					::NavigateToPage( appHwnd, doc, (NMTREEVIEW *) hdr );
+			}
 			return ::DefWindowProc( hwnd, msg, wp, lp );
 		}
 
@@ -55,9 +50,9 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 	}
 }
 
-extern void LoadFile( HWND appHwnd, wchar_t const * filename );
+extern Document * LoadFile( HWND appHwnd, wchar_t const * filename );
 
-HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent )
+HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value )
 {
 	USES_CONVERSION;
 	char temp[512];
@@ -68,10 +63,11 @@ HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTRE
 	::memset( &is, 0, sizeof( TV_INSERTSTRUCT ) );
 	is.hParent = parent;
 	is.hInsertAfter = TVI_LAST;
-	is.item.mask = TVIF_TEXT | TVIF_CHILDREN;
+	is.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 	is.item.cChildren = hasChildren ? 1 : 0;
 	is.item.pszText = A2W( temp );
 	is.item.cchTextMax = len;
+	is.item.lParam = (LPARAM)value;
 
 	return TreeView_InsertItem( outlineHwnd, &is );
 }
@@ -108,7 +104,7 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 
 	if (argc > 1)
 	{
-		LoadFile( appHwnd, argv[1]);
+		doc = LoadFile( appHwnd, argv[1]);
 	}
 
 	::LocalFree( argv );

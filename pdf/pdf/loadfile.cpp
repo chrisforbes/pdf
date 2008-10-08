@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "mapped_file.h"
 #include "token.h"
 #include "parse.h"
 
@@ -6,59 +7,7 @@
 
 // todo: awesome joke somewhere about RDF = reality distortion field
 
-class MappedFile
-{
-	HANDLE hFile;
-	HANDLE hMapping;
-	char const * f;
-	size_t size;
 
-public:
-	MappedFile( wchar_t const * filename )
-		: hFile( INVALID_HANDLE_VALUE ), hMapping( INVALID_HANDLE_VALUE ), f(0)
-	{
-		hFile = ::CreateFile( filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0 );
-		if (hFile == INVALID_HANDLE_VALUE)
-			return;
-
-		DWORD sizeHigh;
-		size = ::GetFileSize( hFile, &sizeHigh );
-
-		if (sizeHigh)
-			return;
-
-		hMapping = ::CreateFileMapping( hFile, 0, PAGE_READONLY, 0, size, 0 );
-		if (hMapping == INVALID_HANDLE_VALUE)
-			return;
-
-		f = (char const *)::MapViewOfFile( hMapping, FILE_MAP_READ, 0, 0, 0 );
-	}
-
-	bool IsValid() const
-	{
-		return f != 0;
-	}
-
-	char const * F() const
-	{
-		return f;
-	}
-
-	size_t Size() const 
-	{
-		return size;
-	}
-
-	~MappedFile()
-	{
-		if (f)
-			::UnmapViewOfFile( f );
-		if (hMapping != INVALID_HANDLE_VALUE)
-			::CloseHandle( hMapping );
-		if (hFile != INVALID_HANDLE_VALUE)
-			::CloseHandle( hFile );
-	}
-};
 
 int GetPdfVersion( MappedFile const & f )
 {
@@ -259,7 +208,7 @@ void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, Dictionary *
 	ReadPdfTrailerSection( f, t, p, false );
 }
 
-extern HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent );
+extern HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value );
 
 void BuildOutline( Dictionary * parent, HTREEITEM parentItem, XrefTable & objmap )
 {
@@ -272,11 +221,63 @@ void BuildOutline( Dictionary * parent, HTREEITEM parentItem, XrefTable & objmap
 		HTREEITEM treeItem = AddOutlineItem( 
 			itemTitle->start, 
 			itemTitle->end - itemTitle->start, 
-			item->Get( "First" ) != 0, parentItem );
+			item->Get( "First" ) != 0, parentItem, 
+			item );
 
 		BuildOutline( item, treeItem, objmap );
 
 		item = (Dictionary *)Object::ResolveIndirect( item->Get( "Next" ), objmap ).get();
+	}
+}
+
+void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
+{
+	if (!info->itemNew.hItem)
+	{
+		SetWindowText( appHwnd, L"(no page) - PDF Viewer" );
+		return;
+	}
+	
+	Dictionary * dict = (Dictionary *)info->itemNew.lParam;
+
+	if (!dict)
+	{
+		SetWindowText( appHwnd, L"(no page [2]) - PDF Viewer" );
+		return;
+	}
+
+	String * itemTitle = (String *)Object::ResolveIndirect( dict->Get( "Title" ), doc->xrefTable ).get();
+
+	char sz[1024];
+	memcpy( sz, itemTitle->start, itemTitle->Length() );
+	sz[itemTitle->Length()] = 0;
+
+	SetWindowTextA( appHwnd, sz );	// WTF, hax
+
+	// todo: follow link
+
+	PObject dest = Object::ResolveIndirect( dict->Get( "Dest" ), doc->xrefTable );
+	if (!dest)
+		SetWindowText( appHwnd, L"no dest key" );
+
+	if (dest->Type() == ObjectType::Array)
+	{
+		// todo: navigate to referenced page
+		SetWindowText( appHwnd, L"dest key = array" );
+		return;
+	}
+
+	if (dest->Type() == ObjectType::String)
+	{
+	//	SetWindowText( appHwnd, L"dest key = string" );
+		String * destStr = (String *)dest.get();
+
+		char * p = sz + itemTitle->Length() + sprintf( sz + itemTitle->Length(), ", dest=`" );
+		memcpy( p, destStr->start, destStr->Length() );
+		p[ destStr->Length() ] = '`';
+		p[ 1+ destStr->Length() ] = 0;
+
+		SetWindowTextA( appHwnd, sz );
 	}
 }
 
@@ -316,66 +317,69 @@ void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const
 #define MsgBox( msg )\
 	::MessageBox( appHwnd, msg, L"PDF Viewer", 0 )
 
-void LoadFile( HWND appHwnd, wchar_t const * filename )
+Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 {
-	MappedFile f( filename );
-	if (!f.IsValid())
+	MappedFile * f = new MappedFile( filename );
+	if (!f->IsValid())
 	{
 		MsgBox( L"Failed opening file" );
-		return;
+		return 0;
 	}
 
-	int version = GetPdfVersion( f );
+	int version = GetPdfVersion( *f );
 	if (!version)
 	{
 		MsgBox( L"Not a PDF: bogus header" );
-		return;
+		return 0;
 	}
 
-	char const * eof = GetPdfEof( f );
+	char const * eof = GetPdfEof( *f );
 	if (!eof)
 	{
 		MsgBox( L"Not a PDF: bogus EOF" );
-		return;
+		return 0;
 	}
 
-	char const * xrefOffsetS = GetPdfPrevLine( f, eof );
-	char const * startXref = GetPdfPrevLine( f, xrefOffsetS );
+	char const * xrefOffsetS = GetPdfPrevLine( *f, eof );
+	char const * startXref = GetPdfPrevLine( *f, xrefOffsetS );
 
 	if (::memcmp(startXref, "startxref", 9 ))
 	{
 		MsgBox( L"Bogus startxref" );
-		return;
+		return 0;
 	}
 
 	char * end = const_cast<char *>(eof);
-	char const * xref = f.F() + ::strtol( xrefOffsetS, &end, 10 );
+	char const * xref = f->F() + ::strtol( xrefOffsetS, &end, 10 );
 	if (!end || end == xrefOffsetS)
 	{
 		MsgBox( L"Bogus xref offset" );
-		return;
+		return 0;
 	}
 
 	if (::memcmp(xref, "xref", 4 ))
 	{
 		MsgBox( L"Bogus xref" );
-		return;
+		return 0;
 	}
 
-	XrefTable objmap;
+	Document * doc = new Document( f );
 
-	char const * trailer = ReadPdfXrefSection( f, xref, objmap );
+	char const * trailer = ReadPdfXrefSection( *f, xref, doc->xrefTable );
 	if (!trailer)
 	{
 		MsgBox( L"Bogus xref section" );
-		return;
+		delete doc;
+		return 0;
 	}
 
-	ReadPdfTrailerSection( f, objmap, trailer, true );
+	ReadPdfTrailerSection( *f, doc->xrefTable, trailer, true );
 
-	wchar_t sz[512];
-	wsprintf( sz, L"num xref objects: %u", objmap.size() );
+	/*wchar_t sz[512];
+	wsprintf( sz, L"num xref objects: %u", doc->xrefTable->size() );
 	MsgBox( sz );
 
-	MsgBox( L"Got here" );
+	MsgBox( L"Got here" );	*/
+
+	return doc;
 }
