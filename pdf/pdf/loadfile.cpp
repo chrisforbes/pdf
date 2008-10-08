@@ -350,7 +350,10 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 
 	PObject dest = Object::ResolveIndirect( dict->Get( "Dest" ), doc->xrefTable );
 	if (!dest)
+	{
 		SetWindowText( appHwnd, L"no dest key" );
+		return;
+	}
 
 	if (dest->Type() == ObjectType::Array)
 	{
