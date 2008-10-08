@@ -44,8 +44,7 @@ char* Inflate( const char* inputStart, const char* inputEnd, size_t* length, voi
 		d_stream.avail_out = bufSize - bufFilled;
 		err = inflate( &d_stream, Z_NO_FLUSH );
 
-		if( d_stream.next_out - buf == 0 && err == Z_STREAM_END )
-			break;
+		bufFilled = d_stream.next_out - buf;
 
 		if( err == Z_STREAM_END )
 			break;
