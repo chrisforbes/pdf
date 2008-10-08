@@ -250,10 +250,30 @@ public:
 	const char* start;
 	const char* end;
 
+	const char* decodedStart;
+	bool decodedIsAllocated;
+
 	Stream( const PDictionary& dict, const char* start, const char* end )
-		: dict( dict ), start( start ), end( end )
+		: dict( dict ), start( start ), end( end ), decodedStart( 0 ), decodedIsAllocated( false )
 	{
 	}
 
+	const char* GetStreamBytes( const XrefTable & objmap )
+	{
+		if( decodedStart )
+			return decodedStart;
+		PObject filter = dict->Get( "Filter", objmap );
+		if( !filter )
+			return decodedStart = start;
+
+		//DebugBreak();
+		return NULL;
+	}
+
+	~Stream()
+	{
+		if( decodedIsAllocated )
+			free( (void*)decodedStart );
+	}
 	IMPLEMENT_OBJECT_TYPE( Stream );
 };

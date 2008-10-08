@@ -189,9 +189,8 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 	if( content->Type() == ObjectType::Stream )
 	{
 		PStream contentS = boost::shared_static_cast<Stream>( content );
-		PObject filter = contentS->dict->Get( "Filter", objmap );
 
-		//noti
+		contentS->GetStreamBytes( objmap );
 	}
 	else if( content->Type() == ObjectType::Array )
 	{

@@ -13,4 +13,6 @@
 #include "mapped_file.h"
 #include "document.h"
 
+#include "../Filter_Flate/flate.h"
+
 #pragma warning( disable: 4996 )
