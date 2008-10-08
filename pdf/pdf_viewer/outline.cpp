@@ -24,21 +24,21 @@ HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTRE
 
 void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & objmap )
 {
-	Dictionary * item = (Dictionary *)Object::ResolveIndirect( parent->Get( "First" ), objmap ).get();
+	Dictionary * item = parent->Get<Dictionary>( "First", objmap ).get();
 	
 	while( item )
 	{
-		String * itemTitle = (String *)Object::ResolveIndirect( item->Get( "Title" ), objmap ).get();
+		String * itemTitle = item->Get<String>( "Title", objmap ).get();
 
 		HTREEITEM treeItem = AddOutlineItem( 
 			itemTitle->start, 
 			itemTitle->end - itemTitle->start, 
-			item->Get( "First" ) != 0, parentItem, 
+			(bool)item->Get( "First" ), parentItem, 
 			item );
 
 		BuildOutline( item, treeItem, objmap );
 
-		item = (Dictionary *)Object::ResolveIndirect( item->Get( "Next" ), objmap ).get();
+		item = item->Get<Dictionary>( "Next", objmap ).get();
 	}
 }
 
@@ -58,7 +58,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 		return;
 	}
 
-	String * itemTitle = (String *)Object::ResolveIndirect( dict->Get( "Title" ), doc->xrefTable ).get();
+	PString itemTitle = dict->Get<String>( "Title", doc->xrefTable );
 
 	char sz[1024];
 	memcpy( sz, itemTitle->start, itemTitle->Length() );
@@ -68,7 +68,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 
 	// todo: follow link
 
-	PObject dest = Object::ResolveIndirect( dict->Get( "Dest" ), doc->xrefTable );
+	PObject dest = dict->Get( "Dest", doc->xrefTable );
 	if (!dest)
 	{
 		SetWindowText( appHwnd, L"no dest key" );

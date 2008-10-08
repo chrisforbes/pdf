@@ -55,7 +55,7 @@ public:
 	virtual ~Object() {}
 	virtual ObjectType::ObjectType Type() const = 0;
 
-	static PObject ResolveIndirect( PObject p, const XrefTable & t );
+	static PObject ResolveIndirect_( PObject p, const XrefTable & t );
 };
 
 #define IMPLEMENT_OBJECT_TYPE( t )\
@@ -179,6 +179,18 @@ public:
 	PObject Get( char const * literalString )
 	{
 		return Get( Name( String( literalString ) ) );
+	}
+
+	PObject Get( char const * literalString, const XrefTable& objmap )
+	{
+		return Object::ResolveIndirect_( Get( literalString ), objmap );
+	}
+
+	template< typename T >
+	boost::shared_ptr<T> Get( char const * literalString, const XrefTable& objmap )
+	{
+		// TODO: do this without the dynamic_cast
+		return boost::shared_dynamic_cast<T>( Get( literalString , objmap ) );
 	}
 
 	void Add( const Name& key, const PObject& value )

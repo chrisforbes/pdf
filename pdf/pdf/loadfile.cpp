@@ -198,7 +198,7 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 		++p;
 
 		PDictionary dict = boost::shared_static_cast<Dictionary>( o );
-		Number* length = (Number*)Object::ResolveIndirect( dict->Get( "Length" ), objmap ).get();
+		PNumber length = dict->Get<Number>( "Length", objmap );
 		return PStream( new Stream( dict, p, p+length->num ) );
 	}
 	else
@@ -225,7 +225,7 @@ PObject ParseIndirectObject( Indirect * i, const XrefTable & objmap )
 	return xref.cache;
 }
 
-PObject Object::ResolveIndirect( PObject p, const XrefTable & objmap )
+PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 {
 	if (!p || p->Type() != ObjectType::Ref)
 		return p;
@@ -235,14 +235,16 @@ PObject Object::ResolveIndirect( PObject p, const XrefTable & objmap )
 
 void DumpPage( Dictionary * start, const XrefTable & objmap )
 {
-	PObject content = Object::ResolveIndirect( start->Get( "Contents" ), objmap );
+	PObject content = start->Get( "Contents", objmap );
 	if( !content )
 		return;
 
 	if( content->Type() == ObjectType::Stream )
 	{
 		PStream contentS = boost::shared_static_cast<Stream>( content );
-		PObject filter = Object::ResolveIndirect( contentS->dict->Get( "Filter" ), objmap );
+		PObject filter = contentS->dict->Get( "Filter", objmap );
+
+		//noti
 	}
 	else if( content->Type() == ObjectType::Array )
 	{
@@ -253,26 +255,28 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 		DebugBreak();
 }
 
-void WalkPageTree( Dictionary * start, const XrefTable & objmap )
+void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 {
-	Name * type = (Name *)Object::ResolveIndirect(start->Get( "Type" ), objmap).get();
-	if (!type || type->Type() != ObjectType::Name)
+	PName type = start->Get<Name>( "Type", objmap );
+	//if (!type || type->Type() != ObjectType::Name)
+	//	DebugBreak();
+	if (!type)
 		DebugBreak();
 
 	if (String( "Page" ) == type->str)
 	{
-		DumpPage( start, objmap );
+		DumpPage( start.get(), objmap );
 	}
 	else
 	{
-		Array * children = (Array *)Object::ResolveIndirect( start->Get( "Kids" ), objmap ).get();
-		if (!children || children->Type() != ObjectType::Array)
+		PArray children = start->Get<Array>( "Kids", objmap );
+		if (!children)// || children->Type() != ObjectType::Array)
 			DebugBreak();
 
 		std::vector< PObject >::const_iterator it;
 		for( it = children->elements.begin(); it != children->elements.end(); it++ )
 		{
-			Dictionary * child = (Dictionary *)Object::ResolveIndirect( *it, objmap ).get();
+			PDictionary child = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect_( *it, objmap ) );
 			WalkPageTree( child, objmap );
 		}
 	}
@@ -306,21 +310,21 @@ PDictionary ReadTopLevelTrailer( MappedFile const & f, XrefTable & objmap, char 
 {
 	PDictionary trailerDict = ReadPdfTrailerSection( f, objmap, p );
 
-	Dictionary * rootDict = (Dictionary *)Object::ResolveIndirect( trailerDict->Get( "Root" ), objmap ).get();
-	if (!rootDict || rootDict->Type() != ObjectType::Dictionary)
+	PDictionary rootDict = trailerDict->Get<Dictionary>( "Root", objmap );
+	if (!rootDict)// || rootDict->Type() != ObjectType::Dictionary)
 	{
 		MessageBox( 0, L"Root object fails", L"Fail", 0 );
 		return PDictionary();
 	}
 
-	PDictionary outlineDict = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect( rootDict->Get( "Outlines" ), objmap ) );
-	if (!outlineDict || outlineDict->Type() != ObjectType::Dictionary)
+	PDictionary outlineDict = rootDict->Get<Dictionary>( "Outlines", objmap );
+	if (!outlineDict)// || outlineDict->Type() != ObjectType::Dictionary)
 	{
 		MessageBox( 0, L"No (or bogus) outline", L"fail", 0 );
 		return PDictionary();
 	}
 
-	Dictionary * pageTreeRoot = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Pages" ), objmap ).get();
+	PDictionary pageTreeRoot = rootDict->Get<Dictionary>( "Pages", objmap );
 	assert( pageTreeRoot );
 	WalkPageTree( pageTreeRoot, objmap );
 
