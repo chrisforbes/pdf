@@ -1,14 +1,9 @@
 #include "pch.h"
-#include "mapped_file.h"
-#include "types.h"
-#include "commctrl.h"
-
-#include <atlbase.h>
-
-#pragma comment( lib, "comctl32.lib" )
+#include "outline.h"
 
 static wchar_t const * wndClassName = L"pdf-appwnd";
-static HWND appHwnd, outlineHwnd;
+static HWND appHwnd;
+extern HWND outlineHwnd;
 static Document * doc = 0;
 
 RECT outlineRect = { 0, 0, 260, 0 };
@@ -51,26 +46,6 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 }
 
 extern Document * LoadFile( HWND appHwnd, wchar_t const * filename );
-
-HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value )
-{
-	USES_CONVERSION;
-	char temp[512];
-	memcpy( temp, start, len );
-	temp[len] = 0;
-
-	TV_INSERTSTRUCT is;
-	::memset( &is, 0, sizeof( TV_INSERTSTRUCT ) );
-	is.hParent = parent;
-	is.hInsertAfter = TVI_LAST;
-	is.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-	is.item.cChildren = hasChildren ? 1 : 0;
-	is.item.pszText = A2W( temp );
-	is.item.cchTextMax = len;
-	is.item.lParam = (LPARAM)value;
-
-	return TreeView_InsertItem( outlineHwnd, &is );
-}
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 {
