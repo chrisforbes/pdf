@@ -1,5 +1,4 @@
 #include "pch.h"
-#include "outline.h"
 
 static wchar_t const * wndClassName = L"pdf-appwnd";
 static HWND appHwnd;
@@ -80,6 +79,7 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 	if (argc > 1)
 	{
 		doc = LoadFile( appHwnd, argv[1]);
+		BuildOutline( doc->outlineRoot.get(), TVI_ROOT, doc->xrefTable );
 	}
 
 	::LocalFree( argv );

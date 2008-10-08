@@ -43,6 +43,10 @@ PObject Parse( const char*& p )
 	case token_e::Name:
 		return PName( new Name( String( tokenStart, p ) ) );
 
+	case token_e::NumberDouble:
+		// TODO: fix this.
+		return PObject();
+
 	default:
 		return PObject();
 	}

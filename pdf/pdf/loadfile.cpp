@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "token.h"
 #include "parse.h"
-#include "outline.h"
 
 // todo: awesome joke somewhere about RDF = reality distortion field
 
@@ -203,7 +202,10 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 		return PStream( new Stream( dict, p, p+length->num ) );
 	}
 	else
+	{
 		DebugBreak();
+		return PObject();
+	}
 }
 
 PObject ParseIndirectObject( Indirect * i, const XrefTable & objmap )
@@ -239,19 +241,12 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 
 	if( content->Type() == ObjectType::Stream )
 	{
-		//PStream stream = boost::shared_static_cast<Stream>( content );
-
-		//char filename[128];
-		//_snprintf( filename, 128, "page%u.txt", stream->start );
-
-		//HANDLE file = CreateFileA( filename, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
-		//DWORD numBytesWritten;
-		//WriteFile( file, stream->start, stream->end - stream->start, &numBytesWritten, NULL );
-		//CloseHandle( file );
+		PStream contentS = boost::shared_static_cast<Stream>( content );
+		PObject filter = Object::ResolveIndirect( contentS->dict->Get( "Filter" ), objmap );
 	}
 	else if( content->Type() == ObjectType::Array )
 	{
-		DebugBreak();
+		//DebugBreak();
 	}
 	else
 		//Invalid file
@@ -283,9 +278,9 @@ void WalkPageTree( Dictionary * start, const XrefTable & objmap )
 	}
 }
 
-void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p, bool isTopLevel );
+PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
 
-void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, Dictionary * d )
+void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, PDictionary d )
 {
 	PObject prev = d->Get( "Prev" );
 	if (!prev || prev->Type() != ObjectType::Number)
@@ -293,40 +288,43 @@ void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, Dictionary *
 
 	char const * p = f.F() + ((Number *)prev.get())->num;
 	p = ReadPdfXrefSection( f, p, t );
-	ReadPdfTrailerSection( f, t, p, false );
+	ReadPdfTrailerSection( f, t, p );
 }
 
-void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p, bool isTopLevel )
+PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p )
 {
 	p = GetPdfNextLine( f, p );
 	PObject trailerDictP = Parse( p );
 
-	Dictionary * trailerDict = (Dictionary *)trailerDictP.get();
+	PDictionary trailerDict = boost::shared_static_cast<Dictionary>( trailerDictP );
 
 	WalkPreviousFileVersions( f, objmap, trailerDict );
+	return trailerDict;
+}
 
-	if (!isTopLevel)
-		return;
+PDictionary ReadTopLevelTrailer( MappedFile const & f, XrefTable & objmap, char const * p )
+{
+	PDictionary trailerDict = ReadPdfTrailerSection( f, objmap, p );
 
 	Dictionary * rootDict = (Dictionary *)Object::ResolveIndirect( trailerDict->Get( "Root" ), objmap ).get();
 	if (!rootDict || rootDict->Type() != ObjectType::Dictionary)
 	{
 		MessageBox( 0, L"Root object fails", L"Fail", 0 );
-		return;
+		return PDictionary();
 	}
 
-	Dictionary * outlineDict = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Outlines" ), objmap ).get();
+	PDictionary outlineDict = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect( rootDict->Get( "Outlines" ), objmap ) );
 	if (!outlineDict || outlineDict->Type() != ObjectType::Dictionary)
 	{
 		MessageBox( 0, L"No (or bogus) outline", L"fail", 0 );
-		return;
+		return PDictionary();
 	}
 
-	BuildOutline( outlineDict, TVI_ROOT, objmap );
-	
 	Dictionary * pageTreeRoot = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Pages" ), objmap ).get();
 	assert( pageTreeRoot );
 	WalkPageTree( pageTreeRoot, objmap );
+
+	return outlineDict;
 }
 
 #define MsgBox( msg )\
@@ -388,7 +386,7 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 		return 0;
 	}
 
-	ReadPdfTrailerSection( *f, doc->xrefTable, trailer, true );
+	doc->outlineRoot = ReadTopLevelTrailer( *f, doc->xrefTable, trailer );
 
 	/*wchar_t sz[512];
 	wsprintf( sz, L"num xref objects: %u", doc->xrefTable->size() );

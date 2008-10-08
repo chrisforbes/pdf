@@ -57,10 +57,17 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case '+':
 		case '-':
 			++p;
-			while( memchr( ".0123456789", *p, 11 ) )
+			while( memchr( "0123456789", *p, 10 ) )
 				++p;
-			return token_e::NumberInt;
 
+			if( *p != '.' )
+				return token_e::NumberInt;
+
+			++p;
+
+			while( memchr( "0123456789", *p, 10 ) )
+				++p;
+			return token_e::NumberDouble;
 		case '[':
 			++p;
 			return token_e::ArrayStart;

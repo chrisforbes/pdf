@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "outline.h"
-
-#include <atlbase.h>
 
 HWND outlineHwnd;
 
