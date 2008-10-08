@@ -57,7 +57,7 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 extern void LoadFile( HWND appHwnd, wchar_t const * filename );
 
-void AddOutlineItem( char const * start, size_t len )
+HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent )
 {
 	USES_CONVERSION;
 	char temp[512];
@@ -66,13 +66,14 @@ void AddOutlineItem( char const * start, size_t len )
 
 	TV_INSERTSTRUCT is;
 	::memset( &is, 0, sizeof( TV_INSERTSTRUCT ) );
+	is.hParent = parent;
 	is.hInsertAfter = TVI_LAST;
-	is.item.mask = TVIF_TEXT;
-	is.item.cChildren = 0;
+	is.item.mask = TVIF_TEXT | TVIF_CHILDREN;
+	is.item.cChildren = hasChildren ? 1 : 0;
 	is.item.pszText = A2W( temp );
 	is.item.cchTextMax = len;
 
-	TreeView_InsertItem( outlineHwnd, &is );
+	return TreeView_InsertItem( outlineHwnd, &is );
 }
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )

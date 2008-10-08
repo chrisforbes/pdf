@@ -2,6 +2,8 @@
 #include "token.h"
 #include "parse.h"
 
+#include "commctrl.h"
+
 // todo: awesome joke somewhere about RDF = reality distortion field
 
 class MappedFile
@@ -257,7 +259,26 @@ void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, Dictionary *
 	ReadPdfTrailerSection( f, t, p, false );
 }
 
-extern void AddOutlineItem( char const * start, size_t len );
+extern HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent );
+
+void BuildOutline( Dictionary * parent, HTREEITEM parentItem, XrefTable & objmap )
+{
+	Dictionary * item = (Dictionary *)Object::ResolveIndirect( parent->Get( "First" ), objmap ).get();
+	
+	while( item )
+	{
+		String * itemTitle = (String *)Object::ResolveIndirect( item->Get( "Title" ), objmap ).get();
+
+		HTREEITEM treeItem = AddOutlineItem( 
+			itemTitle->start, 
+			itemTitle->end - itemTitle->start, 
+			item->Get( "First" ) != 0, parentItem );
+
+		BuildOutline( item, treeItem, objmap );
+
+		item = (Dictionary *)Object::ResolveIndirect( item->Get( "Next" ), objmap ).get();
+	}
+}
 
 void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p, bool isTopLevel )
 {
@@ -285,18 +306,8 @@ void ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const
 		return;
 	}
 
-	Dictionary * outlineItem = (Dictionary *)Object::ResolveIndirect( outlineDict->Get( "First" ), objmap ).get();
+	BuildOutline( outlineDict, TVI_ROOT, objmap );
 	
-	while( outlineItem )
-	{
-		String * itemTitle = (String *)Object::ResolveIndirect( outlineItem->Get( "Title" ), objmap ).get();
-	
-		AddOutlineItem( itemTitle->start, itemTitle->end - itemTitle->start );
-
-		// move to next item
-		outlineItem = (Dictionary *)Object::ResolveIndirect( outlineItem->Get( "Next" ), objmap ).get();
-	}
-
 	Dictionary * pageTreeRoot = (Dictionary *)Object::ResolveIndirect( rootDict->Get( "Pages" ), objmap ).get();
 	assert( pageTreeRoot );
 	//WalkPageTree( pageTreeRoot, objmap );
