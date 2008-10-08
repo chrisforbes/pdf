@@ -36,7 +36,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 				p += 2;
 				return token_e::DictEnd;
 			}
-			DebugBreak();	// noti
+			DebugBreak();
 		case '/':
 			tokenStart = ++p;
 			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
@@ -102,7 +102,6 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case '{':
 		case '}':
 		case '?':
-			// TODO
 			++p;
 			return token_e::Unknown;
 

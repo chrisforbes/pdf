@@ -2,8 +2,6 @@
 #include "token.h"
 #include "parse.h"
 
-// todo: awesome joke somewhere about RDF = reality distortion field
-
 int GetPdfVersion( MappedFile const & f )
 {
 	if (!::memcmp( "%PDF-1.", f.F(), 7 ))
@@ -110,57 +108,6 @@ char const * ReadPdfXrefSection( MappedFile const & f, char const * p, XrefTable
 		p = ReadPdfXrefSubsection( f, p, m );
 
 	return p;
-
-	//size_t currentObjIndex = 0;
-
-	//for(;;)
-	//{
-	//	if (!::memcmp( p, "trailer", 7 ))
-	//		return p;	// we're done
-
-	//	char const * nextLine = GetPdfNextLine(f,p);
-	//	char * q = const_cast<char *>(nextLine);
-
-	//	if (*p == '\r' || *p == '\n')
-	//	{
-	//		p = nextLine;
-	//		continue;
-	//	}
-
-	//	size_t a = ::strtol( p, &q, 10 );
-	//	if (!q || p == q)
-	//		return 0;
-
-	//	p = q;
-	//	q = const_cast<char *>(nextLine);
-
-	//	size_t b = ::strtol( p, &q, 10 );
-	//	if (!q || p == q)
-	//		return 0;
-
-	//	p = q;
-	//	while( *p == ' ' ) ++p;		// eat the spaces
-
-	//	if (*p == '\r' || *p == '\n')
-	//	{
-	//		currentObjIndex = a;
-	//	}
-	//	else
-	//	{
-	//		size_t objIndex = currentObjIndex++;
-	//		
-	//		THIS_NEEDS_I;
-	//		Xref& obj = m[objIndex];
-	//		
-	//		if (obj.generation > b)
-	//			continue;
-
-	//		obj.ptr = *p == 'f' ? 0 : f.F() + a;
-	//		obj.generation = b;
-	//	}
-
-	//	p = nextLine;
-	//}
 }
 
 PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
@@ -258,8 +205,6 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 {
 	PName type = start->Get<Name>( "Type", objmap );
-	//if (!type || type->Type() != ObjectType::Name)
-	//	DebugBreak();
 	if (!type)
 		DebugBreak();
 
@@ -270,7 +215,7 @@ void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 	else
 	{
 		PArray children = start->Get<Array>( "Kids", objmap );
-		if (!children)// || children->Type() != ObjectType::Array)
+		if (!children)
 			DebugBreak();
 
 		std::vector< PObject >::const_iterator it;
@@ -311,14 +256,14 @@ PDictionary ReadTopLevelTrailer( MappedFile const & f, XrefTable & objmap, char 
 	PDictionary trailerDict = ReadPdfTrailerSection( f, objmap, p );
 
 	PDictionary rootDict = trailerDict->Get<Dictionary>( "Root", objmap );
-	if (!rootDict)// || rootDict->Type() != ObjectType::Dictionary)
+	if (!rootDict)
 	{
 		MessageBox( 0, L"Root object fails", L"Fail", 0 );
 		return PDictionary();
 	}
 
 	PDictionary outlineDict = rootDict->Get<Dictionary>( "Outlines", objmap );
-	if (!outlineDict)// || outlineDict->Type() != ObjectType::Dictionary)
+	if (!outlineDict)
 	{
 		MessageBox( 0, L"No (or bogus) outline", L"fail", 0 );
 		return PDictionary();
