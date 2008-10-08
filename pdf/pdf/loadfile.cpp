@@ -190,7 +190,7 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 	{
 		PStream contentS = boost::shared_static_cast<Stream>( content );
 
-		contentS->GetStreamBytes( objmap );
+		const char* decodedPage = contentS->GetStreamBytes( objmap );
 	}
 	else if( content->Type() == ObjectType::Array )
 	{
@@ -209,7 +209,7 @@ void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 
 	if (String( "Page" ) == type->str)
 	{
-		DumpPage( start.get(), objmap );
+		//DumpPage( start.get(), objmap );
 	}
 	else
 	{

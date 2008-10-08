@@ -190,6 +190,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\types.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\types.h"
 			>
 		</File>

@@ -47,8 +47,6 @@ struct Xref
 
 typedef std::vector<Xref> XrefTable;
 
-extern PObject ParseIndirectObject( Indirect * i, char const * p, XrefTable & objmap );
-
 class Object
 {
 public:
@@ -266,9 +264,15 @@ public:
 		if( !filter )
 			return decodedStart = start;
 
-		//DebugBreak();
-		return NULL;
+		if( filter->Type() == ObjectType::Name )
+			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), start, end );
+		else
+			DebugBreak();
+
+		return decodedStart;
 	}
+
+	const char* ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd );
 
 	~Stream()
 	{

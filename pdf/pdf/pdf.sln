@@ -2,6 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual C++ Express 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pdf", "pdf.vcproj", "{BF54CBE5-9583-4E7B-828E-213596AE1772}"
+	ProjectSection(ProjectDependencies) = postProject
+		{AA05A011-6D26-4143-9E91-2D721DC4A299} = {AA05A011-6D26-4143-9E91-2D721DC4A299}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pdf_viewer", "..\pdf_viewer\pdf_viewer.vcproj", "{4E818308-F384-4632-B023-694ACB2C405A}"
 	ProjectSection(ProjectDependencies) = postProject
