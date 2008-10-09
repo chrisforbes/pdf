@@ -145,6 +145,10 @@
 	</References>
 	<Files>
 		<File
+			RelativePath=".\document.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\document.h"
 			>
 		</File>

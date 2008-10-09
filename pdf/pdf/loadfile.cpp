@@ -162,7 +162,7 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 	return ParseIndirectObject( (Indirect *)p.get(), objmap );
 }
 
-void DumpPage( Dictionary * start, const XrefTable & objmap )
+/*void DumpPage( Dictionary * start, const XrefTable & objmap )
 {
 	PObject content = start->Get( "Contents", objmap );
 	if( !content )
@@ -181,9 +181,9 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 	else
 		//Invalid file
 		DebugBreak();
-}
+}*/
 
-void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
+/*void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 {
 	return;
 	PName type = start->Get<Name>( "Type", objmap );
@@ -207,7 +207,8 @@ void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 			WalkPageTree( child, objmap );
 		}
 	}
-}
+}*/
+
 
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
@@ -276,9 +277,8 @@ PDictionary ReadTopLevelTrailer( Document * doc, MappedFile const & f, XrefTable
 
 	PDictionary pageTreeRoot = rootDict->Get<Dictionary>( "Pages", objmap );
 	assert( pageTreeRoot );
-	WalkPageTree( pageTreeRoot, objmap );
 
-	
+	doc->pageRoot = pageTreeRoot;
 	doc->documentCatalog = rootDict;
 
 	return outlineDict;

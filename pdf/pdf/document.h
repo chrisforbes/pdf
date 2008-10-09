@@ -26,4 +26,6 @@ public:
 		if (f)
 			delete f;
 	}
+
+	PDictionary GetPage( size_t n );
 };

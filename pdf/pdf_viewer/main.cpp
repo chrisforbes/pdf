@@ -83,6 +83,9 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 			BuildOutline( doc->outlineRoot.get(), TVI_ROOT, doc->xrefTable );
 	}
 
+	PDictionary page0 = doc->GetPage(0);
+	PDictionary page1 = doc->GetPage(1);
+
 	::LocalFree( argv );
 
 	::ShowWindow( outlineHwnd, SW_SHOW );
