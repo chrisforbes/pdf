@@ -1,6 +1,7 @@
 #pragma once
 
 typedef std::map< size_t, PObject > NumberTree;
+typedef std::map< String, PObject > NameTree;
 
 class Document
 {
@@ -13,6 +14,7 @@ public:
 
 	MappedFile * f;
 	NumberTree pageLabels;
+	NameTree namedDestinations;
 
 	Document( MappedFile * f )
 		: f(f)
