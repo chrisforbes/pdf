@@ -28,4 +28,5 @@ public:
 	}
 
 	PDictionary GetPage( size_t n );
+	size_t GetPageIndex( PDictionary page );
 };

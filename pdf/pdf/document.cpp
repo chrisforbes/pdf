@@ -10,7 +10,7 @@ static PDictionary GetPageInner( Document * doc, PDictionary node, size_t n, siz
 	{
 		PDictionary kid = boost::shared_static_cast<Dictionary>(Object::ResolveIndirect_( *it, doc->xrefTable ));
 		PNumber countP = kid->Get<Number>( "Count", doc->xrefTable );
-		size_t count = countP ? countP.get()->num : 1;
+		size_t count = countP ? countP->num : 1;
 
 		if (n >= a && n < a + count)
 			return GetPageInner( doc, kid, n, a );
@@ -24,4 +24,27 @@ static PDictionary GetPageInner( Document * doc, PDictionary node, size_t n, siz
 PDictionary Document::GetPage( size_t n )
 {
 	return GetPageInner( this, pageRoot, n, 0 );
+}
+
+static size_t GetPageIndexInner( Document * doc, PDictionary node )
+{
+	PDictionary parent = node->Get<Dictionary>("Parent", doc->xrefTable);
+	if (!parent) return 0;
+	PArray children = parent->Get<Array>("Kids", doc->xrefTable);
+	assert( children );
+	size_t n = 0;
+	for (std::vector<PObject>::const_iterator it = children->elements.begin(); it != children->elements.end(); it++)
+	{
+		PDictionary child = boost::shared_static_cast<Dictionary>(Object::ResolveIndirect_( *it, doc->xrefTable ));
+		if (node == child)
+			return n + GetPageIndexInner( doc, parent );
+		PNumber count = child->Get<Number>( "Count", doc->xrefTable );
+		n += count ? count->num : 1;
+	}
+	assert( false );
+}
+
+size_t Document::GetPageIndex( PDictionary page )
+{
+	return GetPageIndexInner( this, page );
 }

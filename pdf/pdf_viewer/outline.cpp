@@ -84,23 +84,26 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 
 	if (dest->Type() == ObjectType::String)
 	{
-	//	SetWindowText( appHwnd, L"dest key = string" );
-		String * destStr = (String *)dest.get();
+		String * s = (String *)dest.get();
 
-		PObject destVal = Object::ResolveIndirect_(doc->namedDestinations[*destStr], doc->xrefTable);
-		PArray destPage;
+		PObject destVal = Object::ResolveIndirect_(doc->namedDestinations[*s], doc->xrefTable);
+		PArray destArray;
 		if (destVal->Type() == ObjectType::Dictionary)
 		{
 			PDictionary d = boost::shared_static_cast<Dictionary>(destVal);
-			destPage = d->Get<Array>("D", doc->xrefTable);
+			//TODO: Implement link action
+			//For now handle everything as GoTo (here be Raptors)
+			//d->Get<Name>("S", doc->xrefTable);
+			destArray = d->Get<Array>("D", doc->xrefTable);
 		}
 		else if (destVal->Type() == ObjectType::Array)
-			destPage = boost::shared_static_cast<Array>(destVal);
+			destArray = boost::shared_static_cast<Array>(destVal);
 
-		if (destPage)
+		if (destArray)
 		{
-			if (destPage->elements.empty()) return;
-			int pageNum = ((Number *)destPage->elements[0].get())->num;
+			if (destArray->elements.empty()) return;
+			size_t pageNum = doc->GetPageIndex( boost::shared_static_cast<Dictionary>(
+				Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable)) );
 			sprintf(sz, "page %d", pageNum);
 			SetWindowTextA( appHwnd, sz );
 		}
