@@ -226,35 +226,15 @@ void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 	}
 }
 
-static void WalkPageLabelTree( Document * doc, Dictionary * node )
-{
-	PArray nums = node->Get<Array>( "Nums", doc->xrefTable );
-	PArray kids = node->Get<Array>( "Kids", doc->xrefTable );
-
-	if (nums)
-		for( std::vector<PObject>::const_iterator it = nums->elements.begin();
-			it != nums->elements.end(); it+=2 )
-		{
-			assert((*it)->Type() == ObjectType::Number);
-			int n = ((Number *)it->get())->num;
-			PObject value = it[1];
-
-			doc->pageLabels[n] = value;
-		}
-
-	if (kids)
-		for( std::vector<PObject>::const_iterator it = kids->elements.begin();
-			it != kids->elements.end(); it++ )
-		{
-			assert((*it)->Type() == ObjectType::Dictionary);
-			WalkPageLabelTree( doc, (Dictionary *)it->get() );
-		}
-}
+extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
 void LoadPageLabels( Document * doc )
 {
-	if (doc->pageLabelRoot)
-		WalkPageLabelTree( doc, doc->pageLabelRoot.get() );
+	doc->pageLabels.clear();
+	PDictionary pageLabelRoot = doc->documentCatalog->Get<Dictionary>( "PageLabels", doc->xrefTable );
+
+	if (pageLabelRoot)
+		WalkNumberTree( doc, pageLabelRoot.get(), doc->pageLabels );
 }
 
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
@@ -305,7 +285,6 @@ PDictionary ReadTopLevelTrailer( Document * doc, MappedFile const & f, XrefTable
 
 	
 	doc->documentCatalog = rootDict;
-	doc->pageLabelRoot = rootDict->Get<Dictionary>( "PageLabels", objmap );
 
 	return outlineDict;
 }

@@ -157,6 +157,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\number_tree.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\obj_parser.cpp"
 			>
 		</File>
