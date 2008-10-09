@@ -27,7 +27,7 @@ static DoubleRect RectFromArray( Array * arr )
 	return DoubleRect( left, top, right, bottom );
 }
 
-DoubleRect GetPageRect( Document * doc, Dictionary * page, char const ** names, size_t numNames )
+static DoubleRect GetPageRect( Document * doc, Dictionary * page, char const ** names, size_t numNames )
 {
 	for( char const ** name = names; name != names + numNames; name++ )
 	{
@@ -43,3 +43,20 @@ DoubleRect GetPageRect( Document * doc, Dictionary * page, char const ** names, 
 
 	assert( false && "Broken page!!" );
 }
+
+static char const * mediaBox[] = { "MediaBox" };
+static char const * cropBox[] = { "CropBox", "MediaBox" };
+static char const * bleedBox[] = { "BleedBox", "CropBox", "MediaBox" };
+static char const * trimBox[] = { "TrimBox", "CropBox", "MediaBox" };
+static char const * artBox[] = { "ArtBox", "CropBox", "MediaBox" };
+
+DoubleRect GetPageMediaBox( Document * doc, Dictionary * page )
+	{ return GetPageRect( doc, page, mediaBox, 1 ); }
+DoubleRect GetPageCropBox( Document * doc, Dictionary * page )
+	{ return GetPageRect( doc, page, cropBox, 2 ); }
+DoubleRect GetPageBleedBox( Document * doc, Dictionary * page )
+	{ return GetPageRect( doc, page, bleedBox, 3 ); }
+DoubleRect GetPageTrimBox( Document * doc, Dictionary * page )
+	{ return GetPageRect( doc, page, trimBox, 3 ); }
+DoubleRect GetPageArtBox( Document * doc, Dictionary * page )
+	{ return GetPageRect( doc, page, artBox, 3 ); }
