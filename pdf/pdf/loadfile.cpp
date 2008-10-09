@@ -226,6 +226,37 @@ void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 	}
 }
 
+static void WalkPageLabelTree( Document * doc, Dictionary * node )
+{
+	PArray nums = node->Get<Array>( "Nums", doc->xrefTable );
+	PArray kids = node->Get<Array>( "Kids", doc->xrefTable );
+
+	if (nums)
+		for( std::vector<PObject>::const_iterator it = nums->elements.begin();
+			it != nums->elements.end(); it+=2 )
+		{
+			assert((*it)->Type() == ObjectType::Number);
+			int n = ((Number *)it->get())->num;
+			PObject value = it[1];
+
+			doc->pageLabels[n] = value;
+		}
+
+	if (kids)
+		for( std::vector<PObject>::const_iterator it = kids->elements.begin();
+			it != kids->elements.end(); it++ )
+		{
+			assert((*it)->Type() == ObjectType::Dictionary);
+			WalkPageLabelTree( doc, (Dictionary *)it->get() );
+		}
+}
+
+void LoadPageLabels( Document * doc )
+{
+	if (doc->pageLabelRoot)
+		WalkPageLabelTree( doc, doc->pageLabelRoot.get() );
+}
+
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
 
 void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, PDictionary d )
@@ -250,7 +281,7 @@ PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, cha
 	return trailerDict;
 }
 
-PDictionary ReadTopLevelTrailer( MappedFile const & f, XrefTable & objmap, char const * p )
+PDictionary ReadTopLevelTrailer( Document * doc, MappedFile const & f, XrefTable & objmap, char const * p )
 {
 	PDictionary trailerDict = ReadPdfTrailerSection( f, objmap, p );
 
@@ -271,6 +302,10 @@ PDictionary ReadTopLevelTrailer( MappedFile const & f, XrefTable & objmap, char 
 	PDictionary pageTreeRoot = rootDict->Get<Dictionary>( "Pages", objmap );
 	assert( pageTreeRoot );
 	WalkPageTree( pageTreeRoot, objmap );
+
+	
+	doc->documentCatalog = rootDict;
+	doc->pageLabelRoot = rootDict->Get<Dictionary>( "PageLabels", objmap );
 
 	return outlineDict;
 }
@@ -334,7 +369,9 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 		return 0;
 	}
 
-	doc->outlineRoot = ReadTopLevelTrailer( *f, doc->xrefTable, trailer );
+	doc->outlineRoot = ReadTopLevelTrailer( doc, *f, doc->xrefTable, trailer );
+
+	LoadPageLabels( doc );
 
 	/*wchar_t sz[512];
 	wsprintf( sz, L"num xref objects: %u", doc->xrefTable->size() );

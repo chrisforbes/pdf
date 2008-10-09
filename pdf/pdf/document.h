@@ -1,12 +1,19 @@
 #pragma once
 
+typedef std::map< size_t, PObject > NumberTree;
+
 class Document
 {
 public:
 	XrefTable xrefTable;
+	
+	PDictionary documentCatalog;
 	PDictionary pageRoot;
 	PDictionary outlineRoot;
+	PDictionary pageLabelRoot;
+
 	MappedFile * f;
+	NumberTree pageLabels;
 
 	Document( MappedFile * f )
 		: f(f)
