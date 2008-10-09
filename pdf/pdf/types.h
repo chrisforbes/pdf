@@ -38,17 +38,7 @@ typedef boost::shared_ptr<String> PString;
 class Indirect;
 typedef boost::shared_ptr<Indirect> PIndirect;
 
-struct Xref
-{
-	char const * ptr;
-	size_t generation;
-	mutable PObject cache;
-
-	Xref()
-		: ptr(0), generation(0) {}
-};
-
-typedef std::vector<Xref> XrefTable;
+#include "XrefTable.h"
 
 class Object
 {
@@ -238,15 +228,11 @@ public:
 
 	char const * Resolve( XrefTable const & t )
 	{
-		if( (size_t)objectNum >= t.size() )
+		const Xref* xref = t.find( objectNum );
+		if( !xref || xref->generation != generation )
 			return 0;
 
-		const Xref& xref = t[ objectNum ];
-
-		if( xref.generation != generation )
-			return 0;
-
-		return xref.ptr;
+		return xref->ptr;
 	}
 
 	IMPLEMENT_OBJECT_TYPE( Ref );

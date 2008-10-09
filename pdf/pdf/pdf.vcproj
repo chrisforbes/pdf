@@ -205,6 +205,10 @@
 			RelativePath=".\types.h"
 			>
 		</File>
+		<File
+			RelativePath=".\XrefTable.h"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

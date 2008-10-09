@@ -21,11 +21,11 @@ public:
 		if (sizeHigh)
 			return;
 
-		hMapping = ::CreateFileMapping( hFile, 0, PAGE_READONLY, 0, size, 0 );
+		hMapping = ::CreateFileMapping( hFile, 0, PAGE_WRITECOPY, 0, size, 0 );
 		if (hMapping == INVALID_HANDLE_VALUE)
 			return;
 
-		f = (char const *)::MapViewOfFile( hMapping, FILE_MAP_READ, 0, 0, 0 );
+		f = (char const *)::MapViewOfFile( hMapping, FILE_MAP_COPY, 0, 0, 0 );
 	}
 
 	bool IsValid() const

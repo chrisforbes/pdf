@@ -52,6 +52,7 @@ char const * GetPdfNextLine( MappedFile const & f, char const * p )
 
 const char * ReadPdfXrefSubsection( const MappedFile& file, const char* p, XrefTable& m )
 {
+	assert( sizeof( Xref ) < 20 );
 	const char* q = GetPdfNextLine( file, p );
 
 	char* tokEnd = const_cast<char*>( q );
@@ -70,32 +71,15 @@ const char * ReadPdfXrefSubsection( const MappedFile& file, const char* p, XrefT
 
 	p = q;
 
-	if( m.size() < first+count )
-		m.insert( m.end(), first + count - m.size(), Xref() );
+	m.addSection( first, count, p );
 
 	size_t end = first + count;
 
 	for( ; first < end ; first++ )
 	{
-		q = GetPdfNextLine( file, p );
-		tokEnd = const_cast<char*>( q );
-		size_t fileOffset = strtoul( p, &tokEnd, 10 );
-		if( tokEnd != p + 10 )
-			return 0;
+		m.fillEntry( p, file );
 
-		p += 11;
-		tokEnd = const_cast<char*>( q );
-		int generation = strtol( p, &tokEnd, 10 );
-		if( tokEnd != p + 5 )
-			return 0;
-
-		m[first].generation = generation;
-		if( p[6] == 'f' )
-			m[first].ptr = 0;
-		else
-			m[first].ptr = file.F() + fileOffset;
-
-		p = q;
+		p += 20;
 	}
 	return p;
 }
@@ -158,18 +142,16 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 PObject ParseIndirectObject( Indirect * i, const XrefTable & objmap )
 {
 	size_t objNum = (size_t)i->objectNum;
-	if( objNum >= objmap.size() )
+
+	const Xref* xref = objmap.find( objNum );
+	if( xref )
 	{
-		DebugBreak();
-		return PObject();
+		if (!xref->cache)
+			xref->cache = InnerParseIndirectObject( i, objmap );
+
+		return xref->cache;
 	}
-
-	const Xref& xref = objmap[ objNum ];
-
-	if (!xref.cache)
-		xref.cache = InnerParseIndirectObject( i, objmap );
-
-	return xref.cache;
+	return PObject();
 }
 
 PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
@@ -203,6 +185,7 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 
 void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
 {
+	return;
 	PName type = start->Get<Name>( "Type", objmap );
 	if (!type)
 		DebugBreak();
