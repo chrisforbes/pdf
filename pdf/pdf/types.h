@@ -10,6 +10,7 @@ enum ObjectType
 	Name,
 	Bool,
 	Number,
+	Double,
 	String,
 	Stream,
 };
@@ -28,6 +29,8 @@ class Name;
 typedef boost::shared_ptr<Name> PName;
 class Number;
 typedef boost::shared_ptr<Number> PNumber;
+class Double;
+typedef boost::shared_ptr<Double> PDouble;
 class Stream;
 typedef boost::shared_ptr<Stream> PStream;
 class String;
@@ -161,6 +164,26 @@ public:
 	IMPLEMENT_OBJECT_TYPE( Number );
 };
 
+class Double : public Object
+{
+public:
+	double num;
+
+	Double( char const * start, char const * end )
+	{
+		char * e = const_cast< char * >( end );
+		num = strtod( start, &e );
+		assert( e == end );
+	}
+
+	Double( Double const & other )
+		: num( other.num )
+	{
+	}
+
+	IMPLEMENT_OBJECT_TYPE( Double );
+};
+
 class Dictionary : public Object
 {
 	std::map<String, PObject> dict;
@@ -280,4 +303,16 @@ public:
 			free( (void*)decodedStart );
 	}
 	IMPLEMENT_OBJECT_TYPE( Stream );
+};
+
+class DoubleRect
+{
+public:
+	double left, top, right, bottom;
+
+	DoubleRect()
+		: left(0), top(0), right(0), bottom(0) {}
+
+	DoubleRect( double left, double top, double right, double bottom )
+		: left(left), top(top), right(right), bottom(bottom) {}
 };
