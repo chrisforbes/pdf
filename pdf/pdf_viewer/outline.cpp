@@ -87,11 +87,22 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 	//	SetWindowText( appHwnd, L"dest key = string" );
 		String * destStr = (String *)dest.get();
 
-		char * p = sz + itemTitle->Length() + sprintf( sz + itemTitle->Length(), ", dest=`" );
-		memcpy( p, destStr->start, destStr->Length() );
-		p[ destStr->Length() ] = '`';
-		p[ 1+ destStr->Length() ] = 0;
+		PObject destVal = Object::ResolveIndirect_(doc->namedDestinations[*destStr], doc->xrefTable);
+		PArray destPage;
+		if (destVal->Type() == ObjectType::Dictionary)
+		{
+			PDictionary d = boost::shared_static_cast<Dictionary>(destVal);
+			destPage = d->Get<Array>("D", doc->xrefTable);
+		}
+		else if (destVal->Type() == ObjectType::Array)
+			destPage = boost::shared_static_cast<Array>(destVal);
 
-		SetWindowTextA( appHwnd, sz );
+		if (destPage)
+		{
+			if (destPage->elements.empty()) return;
+			int pageNum = ((Number *)destPage->elements[0].get())->num;
+			sprintf(sz, "page %d", pageNum);
+			SetWindowTextA( appHwnd, sz );
+		}
 	}
 }

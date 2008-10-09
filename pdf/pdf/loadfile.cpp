@@ -225,7 +225,8 @@ extern void WalkNamedDestinationsTree( Document * doc, Dictionary * node, NameTr
 void LoadNamedDestinations( Document * doc )
 {
 	doc->namedDestinations.clear();
-	PDictionary dests = doc->documentCatalog->Get<Dictionary>( "Dests", doc->xrefTable );
+	PDictionary nameDict = doc->documentCatalog->Get<Dictionary>( "Names", doc->xrefTable );
+	PDictionary dests = nameDict->Get<Dictionary>( "Dests", doc->xrefTable );
 
 	if (dests)
 		WalkNamedDestinationsTree( doc, dests.get(), doc->namedDestinations );

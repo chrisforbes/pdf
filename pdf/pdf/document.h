@@ -16,8 +16,8 @@ public:
 	NumberTree pageLabels;
 	NameTree namedDestinations;
 
-	Document( MappedFile * f )
-		: f(f)
+	Document( MappedFile * g )
+		: f(g)
 	{
 	}
 
