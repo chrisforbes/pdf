@@ -1,7 +1,6 @@
 #pragma once
 
 typedef std::map< size_t, PObject > NumberTree;
-typedef std::map< String, PObject > NameTree;
 
 class Document
 {
@@ -14,8 +13,7 @@ public:
 	PDictionary nameTreeRoot;
 
 	MappedFile * f;
-	NumberTree pageLabels;
-	NameTree namedDestinations;
+//	NumberTree pageLabels;
 
 	Document( MappedFile * g )
 		: f(g)

@@ -90,9 +90,9 @@ PArray ParseArray( const char*& p )
 }
 
 // returns the operator
-String ParseContent( const char *& p, std::vector<PObject>& intoVector )
+String ParseContent( char const *& p, char const * end, std::vector<PObject>& intoVector )
 {
-	for(;;)
+	while( p < end )
 	{
 		const char * q = p;
 		const char * r = p;

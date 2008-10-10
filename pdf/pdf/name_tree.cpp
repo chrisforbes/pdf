@@ -40,7 +40,7 @@ PObject NameTreeGetValueInner( Document * doc, PDictionary node, String key )
 	return PObject();	// *really* not found
 }
 
-PObject NameTreeGetValue( Document * doc, NameTree const & tree, String key )
+PObject NameTreeGetValue( Document * doc, String key )
 {
 	return NameTreeGetValueInner( doc, doc->nameTreeRoot, key );
 }

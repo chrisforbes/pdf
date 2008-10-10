@@ -17,7 +17,7 @@ extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 
 void PaintPage( int width, int height, PDictionary page )
 {
-	BitBlt( cacheDC, 0, 0, (int)width, (int)height, cacheDC, 0, 0, WHITENESS );
+	::Rectangle( cacheDC, 0, 0, width, height );
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (!content)
 		return;			// multiple content streams
@@ -33,7 +33,7 @@ void PaintPage( int width, int height, PDictionary page )
 	while( p < pageContent + length )
 	{
 		args.clear();
-		String op = ParseContent( p, args );
+		String op = ParseContent( p, pageContent + length, args );
 
 		if (op == String("Tm"))
 		{

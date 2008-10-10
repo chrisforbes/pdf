@@ -3,7 +3,7 @@
 HWND outlineHwnd;
 
 extern void SetCurrentPage( PDictionary page );
-extern PObject NameTreeGetValue( Document * doc, NameTree const & tree, String key );
+extern PObject NameTreeGetValue( Document * doc, String key );
 
 HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value )
 {
@@ -62,7 +62,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 	if (dest->Type() == ObjectType::String)
 	{
 		String * s = (String *)dest.get();
-		dest = Object::ResolveIndirect_( NameTreeGetValue( doc, doc->namedDestinations, *s ), doc->xrefTable );
+		dest = Object::ResolveIndirect_( NameTreeGetValue( doc, *s ), doc->xrefTable );
 	}
 
 	PArray destArray;

@@ -163,14 +163,14 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
-void LoadPageLabels( Document * doc )
+/*void LoadPageLabels( Document * doc )
 {
 	doc->pageLabels.clear();
 	PDictionary pageLabelRoot = doc->documentCatalog->Get<Dictionary>( "PageLabels", doc->xrefTable );
 
 	if (pageLabelRoot)
 		WalkNumberTree( doc, pageLabelRoot.get(), doc->pageLabels );
-}
+}*/
 
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
 
