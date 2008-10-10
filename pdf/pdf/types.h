@@ -252,21 +252,24 @@ public:
 
 class Stream : public Object
 {
-public:
-	PDictionary dict;
 	const char* start;
 	const char* end;
 
 	const char* decodedStart;
+	size_t decodedLength;
 	bool decodedIsAllocated;
+public:
+	PDictionary dict;
+	
 
 	Stream( const PDictionary& dict, const char* start, const char* end )
 		: dict( dict ), start( start ), end( end ), decodedStart( 0 ), decodedIsAllocated( false )
 	{
 	}
 
-	const char* GetStreamBytes( const XrefTable & objmap )
+	const char* GetStreamBytes( const XrefTable & objmap, size_t * length )
 	{
+		*length = decodedLength;
 		if( decodedStart )
 			return decodedStart;
 		PObject filter = dict->Get( "Filter", objmap );
@@ -274,14 +277,17 @@ public:
 			return decodedStart = start;
 
 		if( filter->Type() == ObjectType::Name )
-			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), start, end );
+		{
+			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), start, end, &decodedLength );
+			*length = decodedLength;
+		}
 		else
-			DebugBreak();
+			DebugBreak();	// multiple filters, noti
 
 		return decodedStart;
 	}
 
-	const char* ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd );
+	const char* ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd, size_t * length );
 
 	~Stream()
 	{

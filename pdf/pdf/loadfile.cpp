@@ -161,7 +161,7 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 	return ParseIndirectObject( (Indirect *)p.get(), objmap );
 }
 
-void DumpPage( Dictionary * start, const XrefTable & objmap )
+/*void DumpPage( Dictionary * start, const XrefTable & objmap )
 {
 	PObject content = start->Get( "Contents", objmap );
 	if( !content )
@@ -171,7 +171,8 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 	{
 		PStream contentS = boost::shared_static_cast<Stream>( content );
 
-		const char* decodedPage = contentS->GetStreamBytes( objmap );
+		size_t length;
+		const char* decodedPage = contentS->GetStreamBytes( objmap, &length );
 	}
 	else if( content->Type() == ObjectType::Array )
 	{
@@ -180,7 +181,7 @@ void DumpPage( Dictionary * start, const XrefTable & objmap )
 	else
 		//Invalid file
 		DebugBreak();
-}
+}*/
 
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 

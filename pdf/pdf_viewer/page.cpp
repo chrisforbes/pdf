@@ -1,7 +1,7 @@
 #include "pch.h"
 #include <algorithm>
 
-static double ToNumber( PObject obj )
+double ToNumber( PObject obj )
 {
 	if (obj->Type() == ObjectType::Number)
 		return ((Number *)obj.get())->num;

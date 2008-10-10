@@ -8,6 +8,7 @@ Document * doc = 0;
 extern wchar_t const * viewWndClass;
 
 extern void RegisterViewClass();
+extern void SetCurrentPage( PDictionary page );
 
 RECT outlineRect = { 0, 0, 260, 0 };
 RECT viewRect = { 260, 0, 0, 0 };
@@ -64,13 +65,12 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 		0, wndClassName, ::LoadIcon( 0, IDI_WINLOGO ) };
 
 	::RegisterClassEx( &wcx );
-
 	::RegisterViewClass();
 
 	appHwnd = ::CreateWindowEx( 0, wndClassName, L"PDF Viewer", 
 		WS_OVERLAPPEDWINDOW, 0, 0, 640, 480, 0, 0, inst, 0 );
 
-	::ShowWindow( appHwnd, showCmd );
+	::ShowWindow( appHwnd, SW_SHOWMAXIMIZED );
 	::UpdateWindow( appHwnd );
 
 	outlineHwnd = ::CreateWindowEx( WS_EX_CLIENTEDGE, WC_TREEVIEW, L"", 
@@ -97,14 +97,10 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 			BuildOutline( doc->outlineRoot.get(), TVI_ROOT, doc->xrefTable );
 	}
 
-	PDictionary page0 = doc->GetPage(0);
-	PDictionary page1 = doc->GetPage(1);
-
-	DumpPage(page0.get(), doc->xrefTable);
-
 	::LocalFree( argv );
 
-	::ShowWindow( outlineHwnd, SW_SHOW );
+	SetCurrentPage( doc->GetPage( 0 ) );
+
 	::AdjustControlPlacement( appHwnd, outlineHwnd, 0, outlineRect );
 	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );
 	::InvalidateRect( appHwnd, 0, true );

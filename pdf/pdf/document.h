@@ -32,3 +32,5 @@ public:
 	PDictionary GetNextPage( PDictionary page );
 	PDictionary GetPrevPage( PDictionary page );
 };
+
+double ToNumber( PObject obj );	// needs a home!

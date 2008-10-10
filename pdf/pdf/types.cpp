@@ -1,11 +1,10 @@
 #include "pch.h"
 
-const char* Stream::ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd )
+const char* Stream::ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd, size_t * outputLength )
 {
 	if( filterName.str == String( "FlateDecode" ) )
 	{
-		size_t outputLength;
-		return Inflate( inputStart, inputEnd, &outputLength, realloc );
+		return Inflate( inputStart, inputEnd, outputLength, realloc );
 	}
 	else
 	{

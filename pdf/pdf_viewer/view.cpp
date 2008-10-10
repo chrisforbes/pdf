@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "../pdf/parse.h"
 
 HWND viewHwnd;
 wchar_t const * viewWndClass = L"pdf-viewwnd";
@@ -13,9 +14,45 @@ int haxy = 0;
 
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 
-void PaintPage( HWND hwnd, HDC hdc, PAINTSTRUCT const * ps, PDictionary page, int y )
+void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rect, int offset, PDictionary page, int y )
 {
+	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
+	if (!content)
+		return;			// multiple content streams
 
+	size_t length;
+	char const * pageContent = content->GetStreamBytes( doc->xrefTable, &length );
+	char const * p = pageContent;
+
+	size_t numOperations = 0;
+	std::vector<PObject> args;
+
+	while( p < pageContent + length )
+	{
+		args.clear();
+		String op = ParseContent( p, args );
+
+		if (op == String("Tm"))
+		{
+			// text placement
+			assert( args.size() == 6 );
+
+			double _x = ToNumber( args[4] );
+			double _y = ToNumber( args[5] );
+
+			::Rectangle( dc, (int)_x - 10 + offset, (int)(y + rect.bottom - _y - 10) ,
+				(int)_x + 10 + offset, (int)(y + rect.bottom - _y + 10) );
+		}
+
+		++numOperations;
+	}
+
+	size_t n = doc->GetPageIndex( page );
+	assert( doc->GetPage( n ) == page );
+
+	char fail[64];
+	sprintf( fail, "len: %u ops: %u", length, numOperations );
+	TextOutA( dc, offset + 200, y + 10, fail, strlen(fail) );
 }
 
 void ClampToStartOfDocument()
@@ -32,6 +69,8 @@ void ClampToStartOfDocument()
 		offsety -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
 		offsety2 -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
 	}
+
+	return;
 
 	if (!doc->GetPageIndex( currentPage ))
 		if (offsety > PAGE_GAP)
@@ -72,9 +111,11 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 		// get the page number (hack)
 		size_t pageNumber = doc->GetPageIndex( page );
 		char sz[64];
-		sprintf( sz, "Page %u", 1 + pageNumber );
+		sprintf( sz, "Page %u", pageNumber + 1 );
 
-		TextOutA( dc, offset + 20, y + 20, sz, strlen(sz) );
+		TextOutA( dc, offset + 10, y + 10, sz, strlen(sz) );
+
+		PaintPage( hwnd, dc, ps, mediaBox, offset, page, y );
 
 		page = doc->GetNextPage( page );
 		if (!page) break;
@@ -89,8 +130,6 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 			dropshadow_right.top };
 
 		HBRUSH black = (HBRUSH)::GetStockObject(BLACK_BRUSH);
-
-		PaintPage( hwnd, dc, ps, page, y );
 
 		y += height;
 

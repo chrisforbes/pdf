@@ -88,3 +88,21 @@ PArray ParseArray( const char*& p )
 		array->Add( Parse( p ) );
 	}
 }
+
+// returns the operator
+String ParseContent( const char *& p, std::vector<PObject>& intoVector )
+{
+	for(;;)
+	{
+		const char * q = p;
+		const char * r = p;
+		token t = Token( q, r );
+		if (t == token_e::Keyword)
+		{
+			p = q;
+			return String( r, q );
+		}
+
+		intoVector.push_back( Parse( p ) );
+	}
+}
