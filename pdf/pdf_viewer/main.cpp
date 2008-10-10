@@ -56,6 +56,8 @@ extern void DumpPage( Dictionary * start, const XrefTable & objmap );
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 {
+	DWORD t = GetTickCount();
+
 	::InitCommonControls();
 
 	WNDCLASSEX wcx = { sizeof(WNDCLASSEX), CS_OWNDC | CS_DBLCLKS,
@@ -105,6 +107,10 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );
 	::InvalidateRect( appHwnd, 0, true );
 	::UpdateWindow( appHwnd );		// force painting of UI NOW
+
+	char sz[64];
+	sprintf( sz, "all: %u ms", GetTickCount() - t );
+	//.MessageBoxA( 0, sz, "fail", 0 );
 
 	MSG msg;
 	while( ::GetMessage( &msg, 0, 0, 0 ) )

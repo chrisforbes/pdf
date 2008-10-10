@@ -27,6 +27,7 @@ void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rec
 	size_t numOperations = 0;
 	std::vector<PObject> args;
 
+	DWORD t = GetTickCount();
 	while( p < pageContent + length )
 	{
 		args.clear();
@@ -47,11 +48,13 @@ void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rec
 		++numOperations;
 	}
 
+	t = GetTickCount() - t;
+
 	size_t n = doc->GetPageIndex( page );
 	assert( doc->GetPage( n ) == page );
 
-	char fail[64];
-	sprintf( fail, "len: %u ops: %u", length, numOperations );
+	char fail[128];
+	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, t );
 	TextOutA( dc, offset + 200, y + 10, fail, strlen(fail) );
 }
 
@@ -69,8 +72,6 @@ void ClampToStartOfDocument()
 		offsety -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
 		offsety2 -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
 	}
-
-	return;
 
 	if (!doc->GetPageIndex( currentPage ))
 		if (offsety > PAGE_GAP)
@@ -94,6 +95,10 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	ClampToEndOfDocument();
 
 	int y = offsety;
+
+	// erase any space above top of page
+	RECT fail = { 0, 0, clientRect.right, offsety };
+	FillRect( dc, &fail, (HBRUSH)(COLOR_APPWORKSPACE + 1) );
 
 	PDictionary page = currentPage;
 

@@ -161,28 +161,6 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 	return ParseIndirectObject( (Indirect *)p.get(), objmap );
 }
 
-/*void DumpPage( Dictionary * start, const XrefTable & objmap )
-{
-	PObject content = start->Get( "Contents", objmap );
-	if( !content )
-		return;
-
-	if( content->Type() == ObjectType::Stream )
-	{
-		PStream contentS = boost::shared_static_cast<Stream>( content );
-
-		size_t length;
-		const char* decodedPage = contentS->GetStreamBytes( objmap, &length );
-	}
-	else if( content->Type() == ObjectType::Array )
-	{
-		//DebugBreak();
-	}
-	else
-		//Invalid file
-		DebugBreak();
-}*/
-
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
 void LoadPageLabels( Document * doc )
@@ -318,14 +296,7 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 
 	doc->outlineRoot = ReadTopLevelTrailer( doc, *f, doc->xrefTable, trailer );
 
-	LoadPageLabels( doc );
-	LoadNamedDestinations( doc );
-
-	/*wchar_t sz[512];
-	wsprintf( sz, L"num xref objects: %u", doc->xrefTable->size() );
-	MsgBox( sz );
-
-	MsgBox( L"Got here" );	*/
+//	LoadNamedDestinations( doc );
 
 	return doc;
 }
