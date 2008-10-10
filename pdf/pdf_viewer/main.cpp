@@ -92,26 +92,27 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 	int argc;
 	wchar_t ** argv = ::CommandLineToArgvW( ::GetCommandLine(), &argc );
 
+	DWORD u = 0, v=0;
+
 	if (argc > 1)
 	{
 		doc = LoadFile( appHwnd, argv[1]);
 		if (doc)
 		{
+			u = GetTickCount();
 			BuildOutline( doc->outlineRoot.get(), TVI_ROOT, doc->xrefTable );
+			u = GetTickCount() - u;
+			v = GetTickCount();
 			SetCurrentPage( doc->GetPage( 0 ) );
 		}
 	}
 
 	::LocalFree( argv );
 
+	v = GetTickCount() - v;
 
-	::AdjustControlPlacement( appHwnd, outlineHwnd, 0, outlineRect );
-	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );
-	::InvalidateRect( appHwnd, 0, true );
-	::UpdateWindow( appHwnd );		// force painting of UI NOW
-
-	char sz[128];
-	sprintf( sz, "PDF Viewer - Startup time: %u ms", GetTickCount() - t );
+	char sz[256];
+	sprintf( sz, "PDF Viewer - Startup time: %u ms Outline:%u render:%u ms", GetTickCount() - t, u, v );
 	SetWindowTextA( appHwnd, sz );
 
 	MSG msg;

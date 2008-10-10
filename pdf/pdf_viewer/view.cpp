@@ -307,7 +307,7 @@ void RegisterViewClass()
 	openHand = ::LoadCursor( GetModuleHandle(0), MAKEINTRESOURCE( IDC_OPENHAND ) );
 	closedHand = ::LoadCursor( GetModuleHandle(0), MAKEINTRESOURCE( IDC_CLOSEDHAND ) );
 	current = openHand;
-	WNDCLASSEX wcx = { sizeof(WNDCLASSEX), CS_OWNDC, ViewWndProc, 0, 0, 
+	WNDCLASSEX wcx = { sizeof(WNDCLASSEX), CS_OWNDC | CS_HREDRAW | CS_VREDRAW, ViewWndProc, 0, 0, 
 		GetModuleHandle( 0 ), 0, current, 0,
 		0, viewWndClass, 0 };
 
