@@ -111,7 +111,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 			SetCurrentPage( page );
 
 			size_t pageNum = doc->GetPageIndex( page );
-			sprintf(sz, "page %d", pageNum);
+			sprintf(sz, "page %u", pageNum + 1);
 			SetWindowTextA( appHwnd, sz );
 		}
 	}
