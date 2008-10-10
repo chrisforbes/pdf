@@ -172,7 +172,7 @@ void LoadPageLabels( Document * doc )
 		WalkNumberTree( doc, pageLabelRoot.get(), doc->pageLabels );
 }
 
-extern void WalkNamedDestinationsTree( Document * doc, Dictionary * node, NameTree & intoTree );
+extern void WalkNameTree( Document * doc, Dictionary * node, NameTree & intoTree );
 
 void LoadNamedDestinations( Document * doc )
 {
@@ -181,7 +181,7 @@ void LoadNamedDestinations( Document * doc )
 	PDictionary dests = nameDict->Get<Dictionary>( "Dests", doc->xrefTable );
 
 	if (dests)
-		WalkNamedDestinationsTree( doc, dests.get(), doc->namedDestinations );
+		WalkNameTree( doc, dests.get(), doc->namedDestinations );
 }
 
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );

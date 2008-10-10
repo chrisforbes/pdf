@@ -1,6 +1,6 @@
 #include "pch.h"
 
-void WalkNamedDestinationsTree( Document * doc, Dictionary * node, NameTree & intoTree )
+void WalkNameTree( Document * doc, Dictionary * node, NameTree & intoTree )
 {
 	PArray names = node->Get<Array>( "Names", doc->xrefTable );
 	PArray kids = node->Get<Array>( "Kids", doc->xrefTable );
@@ -21,6 +21,12 @@ void WalkNamedDestinationsTree( Document * doc, Dictionary * node, NameTree & in
 		{
 			PObject child = Object::ResolveIndirect_(*it, doc->xrefTable);
 			assert( child->Type() == ObjectType::Dictionary );
-			WalkNamedDestinationsTree( doc, (Dictionary *)child.get(), intoTree );
+			WalkNameTree( doc, (Dictionary *)child.get(), intoTree );
 		}
+}
+
+PObject NameTreeGetValue( Document * doc, NameTree const & tree, String key )
+{
+	NameTree::const_iterator it = tree.find( key );
+	return (it == tree.end()) ? PObject() : it->second;
 }
