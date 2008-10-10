@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "../pdf/parse.h"
+#include "resource.h"
 
 HDC cacheDC = NULL;
 HWND viewHwnd;
@@ -9,6 +10,7 @@ extern Document * doc;
 int offsety = 0;
 int offsety2 = 0;	// hax, fix names
 int haxy = 0;
+HCURSOR openHand, closedHand, current;
 
 #define PAGE_GAP	5
 #define DROP_SHADOW_SIZE	2
@@ -253,6 +255,19 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			POINTS fail = MAKEPOINTS( lp );
 			haxy = fail.y;
 			offsety2 = offsety;
+			SetCursor( current = closedHand );
+			return 0;
+		}
+
+	case WM_LBUTTONUP:
+		{
+			SetCursor( current = openHand );
+			return 0;
+		}
+
+	case WM_SETCURSOR:
+		{
+			SetCursor( current );
 			return 0;
 		}
 
@@ -289,8 +304,11 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 void RegisterViewClass()
 {
-	WNDCLASSEX wcx = { sizeof(WNDCLASSEX), CS_OWNDC | CS_DBLCLKS, ViewWndProc, 0, 0, 
-		GetModuleHandle( 0 ), 0, LoadCursor( 0, IDC_HAND ), 0,
+	openHand = ::LoadCursor( GetModuleHandle(0), MAKEINTRESOURCE( IDC_OPENHAND ) );
+	closedHand = ::LoadCursor( GetModuleHandle(0), MAKEINTRESOURCE( IDC_CLOSEDHAND ) );
+	current = openHand;
+	WNDCLASSEX wcx = { sizeof(WNDCLASSEX), CS_OWNDC, ViewWndProc, 0, 0, 
+		GetModuleHandle( 0 ), 0, current, 0,
 		0, viewWndClass, 0 };
 
 	ATOM hax = RegisterClassEx( &wcx );
