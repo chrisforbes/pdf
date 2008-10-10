@@ -172,18 +172,6 @@ void LoadPageLabels( Document * doc )
 		WalkNumberTree( doc, pageLabelRoot.get(), doc->pageLabels );
 }
 
-extern void WalkNameTree( Document * doc, Dictionary * node, NameTree & intoTree );
-
-void LoadNamedDestinations( Document * doc )
-{
-	doc->namedDestinations.clear();
-	PDictionary nameDict = doc->documentCatalog->Get<Dictionary>( "Names", doc->xrefTable );
-	PDictionary dests = nameDict->Get<Dictionary>( "Dests", doc->xrefTable );
-
-	if (dests)
-		WalkNameTree( doc, dests.get(), doc->namedDestinations );
-}
-
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
 
 void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, PDictionary d )
@@ -296,6 +284,8 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 
 	doc->outlineRoot = ReadTopLevelTrailer( doc, *f, doc->xrefTable, trailer );
 
+	PDictionary nameDict = doc->documentCatalog->Get<Dictionary>( "Names", doc->xrefTable );
+	doc->nameTreeRoot = nameDict->Get<Dictionary>( "Dests", doc->xrefTable );
 //	LoadNamedDestinations( doc );
 
 	return doc;

@@ -110,7 +110,7 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 
 	char sz[64];
 	sprintf( sz, "all: %u ms", GetTickCount() - t );
-	//.MessageBoxA( 0, sz, "fail", 0 );
+	MessageBoxA( 0, sz, "fail", 0 );
 
 	MSG msg;
 	while( ::GetMessage( &msg, 0, 0, 0 ) )

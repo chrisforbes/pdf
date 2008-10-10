@@ -1,32 +1,46 @@
 #include "pch.h"
 
-void WalkNameTree( Document * doc, Dictionary * node, NameTree & intoTree )
+PObject NameTreeGetValueInner( Document * doc, PDictionary node, String key )
 {
 	PArray names = node->Get<Array>( "Names", doc->xrefTable );
-	PArray kids = node->Get<Array>( "Kids", doc->xrefTable );
-
 	if (names)
-		for (std::vector<PObject>::const_iterator it = names->elements.begin();
-			it != names->elements.end(); it += 2)
+	{
+		// todo: binary search here, these elements are ordered
+
+		std::vector<PObject>::const_iterator it;
+		for( it = names->elements.begin(); it != names->elements.end(); it += 2)
 		{
-			assert( (*it)->Type() == ObjectType::String );
-			String str = *(String *)it[0].get();
-			PObject value = it[1];
-			intoTree[str] = value;
+			if (key == *(String *)(it[0].get()))
+				return it[1];
 		}
 
+		return PObject();	// not found
+	}
+
+	PArray kids = node->Get<Array>( "Kids", doc->xrefTable );
 	if (kids)
-		for (std::vector<PObject>::const_iterator it = kids->elements.begin();
-			it != kids->elements.end(); it++)
+	{
+		// todo: binary search here, these are ordered too
+
+		std::vector<PObject>::const_iterator it;
+		for( it = kids->elements.begin(); it != kids->elements.end(); it++ )
 		{
-			PObject child = Object::ResolveIndirect_(*it, doc->xrefTable);
-			assert( child->Type() == ObjectType::Dictionary );
-			WalkNameTree( doc, (Dictionary *)child.get(), intoTree );
+			PDictionary kid = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect_(*it, doc->xrefTable ) );
+			PArray limits = kid->Get<Array>( "Limits", doc->xrefTable );
+
+			if (key < *(String *)(limits->elements[0].get()))
+				continue;
+			if (*(String *)(limits->elements[1].get()) < key)
+				continue;
+
+			return NameTreeGetValueInner( doc, kid, key );
 		}
+	}
+
+	return PObject();	// *really* not found
 }
 
 PObject NameTreeGetValue( Document * doc, NameTree const & tree, String key )
 {
-	NameTree::const_iterator it = tree.find( key );
-	return (it == tree.end()) ? PObject() : it->second;
+	return NameTreeGetValueInner( doc, doc->nameTreeRoot, key );
 }

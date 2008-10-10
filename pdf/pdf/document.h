@@ -11,6 +11,7 @@ public:
 	PDictionary documentCatalog;
 	PDictionary pageRoot;
 	PDictionary outlineRoot;
+	PDictionary nameTreeRoot;
 
 	MappedFile * f;
 	NumberTree pageLabels;
