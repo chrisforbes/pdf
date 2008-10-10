@@ -166,16 +166,28 @@
 	<References>
 	</References>
 	<Files>
-		<File
-			RelativePath=".\closedhand.cur"
+		<Filter
+			Name="Resources"
 			>
-		</File>
+			<File
+				RelativePath=".\closedhand.cur"
+				>
+			</File>
+			<File
+				RelativePath=".\openhand.cur"
+				>
+			</File>
+			<File
+				RelativePath=".\pdf_viewer.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\resource.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath=".\main.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\openhand.cur"
 			>
 		</File>
 		<File
@@ -205,14 +217,6 @@
 		</File>
 		<File
 			RelativePath=".\pch.h"
-			>
-		</File>
-		<File
-			RelativePath=".\pdf_viewer.rc"
-			>
-		</File>
-		<File
-			RelativePath=".\resource.h"
 			>
 		</File>
 		<File
