@@ -141,7 +141,7 @@ void ClampToEndOfDocument()
 		currentPage = nextPage;
 	}
 
-	// a problem for another day - also a blatant hack
+	// a blatant hack
 
 	PDictionary failPage = currentPage;
 	RECT clientRect;
@@ -200,8 +200,6 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 		double height = mediaBox.bottom - mediaBox.top;
 
-		//::Rectangle( dc, offset + (int)mediaBox.left, y, offset + (int)mediaBox.right, y + (int)height );
-		
 		PaintPageFromCache( hwnd, dc, mediaBox, offset, page, y );
 
 		RECT dropshadow_right = { offset + (int)mediaBox.right, y + DROP_SHADOW_SIZE, 
