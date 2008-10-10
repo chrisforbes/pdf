@@ -48,3 +48,13 @@ size_t Document::GetPageIndex( PDictionary page )
 {
 	return GetPageIndexInner( this, page );
 }
+
+PDictionary Document::GetNextPage(PDictionary page)
+{
+	return GetPage( GetPageIndex( page ) + 1 );
+}
+
+PDictionary Document::GetPrevPage(PDictionary page)
+{
+	return GetPage( GetPageIndex( page ) - 1 );
+}

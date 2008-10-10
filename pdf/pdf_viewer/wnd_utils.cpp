@@ -15,7 +15,7 @@ void AdjustControlPlacement( HWND parent, HWND child, WINDOWPOS * p, RECT contro
 	}
 
 	if (controlAlignment.left < 0) controlAlignment.left = clientRect.right - clientRect.left - controlAlignment.left;
-	if (controlAlignment.right <= 0) controlAlignment.left = clientRect.right - clientRect.left - controlAlignment.right;
+	if (controlAlignment.right <= 0) controlAlignment.right = clientRect.right - clientRect.left - controlAlignment.right;
 
 	if (controlAlignment.top < 0) controlAlignment.top = clientRect.bottom - clientRect.top - controlAlignment.top;
 	if (controlAlignment.bottom <= 0) controlAlignment.bottom = clientRect.bottom - clientRect.top - controlAlignment.bottom;

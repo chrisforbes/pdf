@@ -29,4 +29,6 @@ public:
 
 	PDictionary GetPage( size_t n );
 	size_t GetPageIndex( PDictionary page );
+	PDictionary GetNextPage( PDictionary page );
+	PDictionary GetPrevPage( PDictionary page );
 };

@@ -3,9 +3,14 @@
 static wchar_t const * wndClassName = L"pdf-appwnd";
 static HWND appHwnd;
 extern HWND outlineHwnd;
-static Document * doc = 0;
+extern HWND viewHwnd;
+Document * doc = 0;
+extern wchar_t const * viewWndClass;
+
+extern void RegisterViewClass();
 
 RECT outlineRect = { 0, 0, 260, 0 };
+RECT viewRect = { 260, 0, 0, 0 };
 
 extern void AdjustControlPlacement( HWND parent, HWND child, WINDOWPOS * p, RECT controlAlignment );
 extern void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info );
@@ -25,6 +30,7 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 				return ::DefWindowProc( hwnd, msg, wp, lp );
 
 			::AdjustControlPlacement( appHwnd, outlineHwnd, pos, outlineRect );
+			::AdjustControlPlacement( appHwnd, viewHwnd, pos, viewRect );
 			return ::DefWindowProc( hwnd, msg, wp, lp );
 		}
 
@@ -58,6 +64,8 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 
 	::RegisterClassEx( &wcx );
 
+	::RegisterViewClass();
+
 	appHwnd = ::CreateWindowEx( 0, wndClassName, L"PDF Viewer", 
 		WS_OVERLAPPEDWINDOW, 0, 0, 640, 480, 0, 0, inst, 0 );
 
@@ -69,7 +77,12 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 		TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS, 0, 0, 1,1, appHwnd, 
 		0, inst, 0 );
 
+	viewHwnd = ::CreateWindowEx( WS_EX_CLIENTEDGE, viewWndClass, L"",
+		WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | WS_VISIBLE, 0, 0, 1, 1, appHwnd, 
+		0, inst, 0 );
+
 	::AdjustControlPlacement( appHwnd, outlineHwnd, 0, outlineRect );
+	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );
 	::UpdateWindow( outlineHwnd );
 	::UpdateWindow( appHwnd );
 
@@ -90,6 +103,7 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 
 	::ShowWindow( outlineHwnd, SW_SHOW );
 	::AdjustControlPlacement( appHwnd, outlineHwnd, 0, outlineRect );
+	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );
 	::InvalidateRect( appHwnd, 0, true );
 	::UpdateWindow( appHwnd );		// force painting of UI NOW
 

@@ -2,6 +2,8 @@
 
 HWND outlineHwnd;
 
+extern void SetCurrentPage( PDictionary page );
+
 HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTREEITEM parent, void * value )
 {
 	USES_CONVERSION;
@@ -102,8 +104,13 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 		if (destArray)
 		{
 			if (destArray->elements.empty()) return;
-			size_t pageNum = doc->GetPageIndex( boost::shared_static_cast<Dictionary>(
-				Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable)) );
+			
+			PDictionary page = boost::shared_static_cast<Dictionary>(
+				Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable));
+
+			SetCurrentPage( page );
+
+			size_t pageNum = doc->GetPageIndex( page );
 			sprintf(sz, "page %d", pageNum);
 			SetWindowTextA( appHwnd, sz );
 		}

@@ -200,6 +200,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\view.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\wnd_utils.cpp"
 			>
 		</File>
