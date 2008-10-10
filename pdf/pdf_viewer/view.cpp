@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "../pdf/parse.h"
 
+HDC cacheDC = NULL;
 HWND viewHwnd;
 wchar_t const * viewWndClass = L"pdf-viewwnd";
 PDictionary currentPage;
@@ -14,8 +15,9 @@ int haxy = 0;
 
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 
-void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rect, int offset, PDictionary page, int y )
+void PaintPage( int width, int height, PDictionary page )
 {
+	BitBlt( cacheDC, 0, 0, (int)width, (int)height, cacheDC, 0, 0, WHITENESS );
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (!content)
 		return;			// multiple content streams
@@ -41,8 +43,8 @@ void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rec
 			double _x = ToNumber( args[4] );
 			double _y = ToNumber( args[5] );
 
-			::Rectangle( dc, (int)_x - 10 + offset, (int)(y + rect.bottom - _y - 10) ,
-				(int)_x + 10 + offset, (int)(y + rect.bottom - _y + 10) );
+			::Rectangle( cacheDC, (int)_x - 10, (int)(height - _y - 10) ,
+				(int)_x + 10, (int)(height - _y + 10) );
 		}
 
 		++numOperations;
@@ -53,9 +55,52 @@ void PaintPage( HWND hwnd, HDC dc, PAINTSTRUCT const * ps, DoubleRect const& rec
 	size_t n = doc->GetPageIndex( page );
 	assert( doc->GetPage( n ) == page );
 
+	// get the page number (hack)
+	size_t pageNumber = doc->GetPageIndex( page );
+	char sz[64];
+	sprintf( sz, "Page %u", pageNumber + 1 );
+	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
+
 	char fail[128];
 	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, t );
-	TextOutA( dc, offset + 200, y + 10, fail, strlen(fail) );
+	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
+}
+
+static std::vector<std::pair<size_t, HBITMAP>> cachedPages;
+static const int PAGE_CACHE_MAX_SIZE = 4;
+
+void PaintPageFromCache( HWND hwnd, HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
+{
+	HBITMAP cacheBitmap = NULL;
+	size_t pageNum = doc->GetPageIndex( page );
+	for( size_t i = 0 ; i < cachedPages.size() ; i++ )
+	{
+		if( cachedPages[i].first == pageNum )
+		{
+			cacheBitmap = cachedPages[i].second;
+			cachedPages.erase( cachedPages.begin() + i );
+			cachedPages.push_back( std::pair<size_t, HBITMAP>( pageNum, cacheBitmap ) );
+			break;
+		}
+	}
+
+	if( !cacheBitmap )
+	{
+		cacheBitmap = CreateCompatibleBitmap( dc, (int)rect.width(), (int)rect.height() );
+		SelectObject( cacheDC, cacheBitmap );
+		cachedPages.push_back( std::pair<size_t, HBITMAP>( pageNum, cacheBitmap ) );
+
+		if( cachedPages.size() >= PAGE_CACHE_MAX_SIZE )
+		{
+			DeleteObject( cachedPages[0].second );
+			cachedPages.erase( cachedPages.begin() );
+		}
+		PaintPage( (int)rect.width(), (int)rect.height(), page );
+	}
+	else
+		SelectObject( cacheDC, cacheBitmap );
+
+	BitBlt( dc, offset, y, (int)rect.width(), (int)rect.height(), cacheDC, 0, 0, SRCCOPY );
 }
 
 void ClampToStartOfDocument()
@@ -69,8 +114,8 @@ void ClampToStartOfDocument()
 		currentPage = prevPage;
 		DoubleRect mediaBox = GetPageMediaBox( doc, prevPage.get() );
 
-		offsety -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
-		offsety2 -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
+		offsety -= (int)mediaBox.height() + PAGE_GAP;
+		offsety2 -= (int)mediaBox.height() + PAGE_GAP;
 	}
 
 	if (!doc->GetPageIndex( currentPage ))
@@ -80,6 +125,22 @@ void ClampToStartOfDocument()
 
 void ClampToEndOfDocument()
 {
+	while( true )
+	{
+		DoubleRect mediaBox = GetPageMediaBox( doc, currentPage.get() );
+		if( offsety >= -mediaBox.height() )
+			break;
+
+		PDictionary nextPage = doc->GetNextPage( currentPage );
+		if (!nextPage)
+			break;
+
+		offsety += (int)mediaBox.height() + PAGE_GAP;
+		offsety2 +=(int)mediaBox.height() + PAGE_GAP;
+
+		currentPage = nextPage;
+	}
+
 	// a problem for another day
 }
 
@@ -111,16 +172,9 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 		double height = mediaBox.bottom - mediaBox.top;
 
-		::Rectangle( dc, offset + (int)mediaBox.left, y, offset + (int)mediaBox.right, y + (int)height );
+		//::Rectangle( dc, offset + (int)mediaBox.left, y, offset + (int)mediaBox.right, y + (int)height );
 		
-		// get the page number (hack)
-		size_t pageNumber = doc->GetPageIndex( page );
-		char sz[64];
-		sprintf( sz, "Page %u", pageNumber + 1 );
-
-		TextOutA( dc, offset + 10, y + 10, sz, strlen(sz) );
-
-		PaintPage( hwnd, dc, ps, mediaBox, offset, page, y );
+		PaintPageFromCache( hwnd, dc, mediaBox, offset, page, y );
 
 		page = doc->GetNextPage( page );
 		if (!page) break;
@@ -158,6 +212,8 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 		{
 			PAINTSTRUCT ps;
 			HDC dc = ::BeginPaint( hwnd, &ps );
+			if( !cacheDC )
+				cacheDC = CreateCompatibleDC( dc );
 			PaintView( hwnd, dc, &ps );
 			::ReleaseDC( hwnd, dc );
 			return 0;

@@ -96,12 +96,14 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 	{
 		doc = LoadFile( appHwnd, argv[1]);
 		if (doc)
+		{
 			BuildOutline( doc->outlineRoot.get(), TVI_ROOT, doc->xrefTable );
+			SetCurrentPage( doc->GetPage( 0 ) );
+		}
 	}
 
 	::LocalFree( argv );
 
-	SetCurrentPage( doc->GetPage( 0 ) );
 
 	::AdjustControlPlacement( appHwnd, outlineHwnd, 0, outlineRect );
 	::AdjustControlPlacement( appHwnd, viewHwnd, 0, viewRect );

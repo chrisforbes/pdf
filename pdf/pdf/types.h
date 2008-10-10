@@ -307,4 +307,7 @@ public:
 
 	DoubleRect( double left, double top, double right, double bottom )
 		: left(left), top(top), right(right), bottom(bottom) {}
+
+	double width() const { return right - left; }
+	double height() const { return bottom - top; }
 };
