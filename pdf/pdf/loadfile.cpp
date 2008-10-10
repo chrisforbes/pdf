@@ -98,8 +98,8 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 {
 	const char* p = i->Resolve( objmap );
 
-	PObject objNum = Parse( p );
-	PObject objGen = Parse( p );
+	PObject objNum = Parse( p, 0 );
+	PObject objGen = Parse( p, 0 );
 
 	if (objNum->Type() != ObjectType::Number || objGen->Type() != ObjectType::Number)
 		DebugBreak();
@@ -111,12 +111,12 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 		DebugBreak();
 
 	char const * tokenStart = p;
-	if (token_e::KeywordObj != Token( p, tokenStart ))
+	if (token_e::KeywordObj != Token( p, tokenStart, 0 ))
 		DebugBreak();
 
-	PObject o = Parse( p );
+	PObject o = Parse( p, 0 );
 
-	token t = Token( p, tokenStart );
+	token t = Token( p, tokenStart, 0 );
 	if ( t == token_e::KeywordEndObj )
 		return o;
 	else if ( t == token_e::Stream && o->Type() == ObjectType::Dictionary )
@@ -188,7 +188,7 @@ void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, PDictionary 
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p )
 {
 	p = GetPdfNextLine( f, p );
-	PObject trailerDictP = Parse( p );
+	PObject trailerDictP = Parse( p, 0 );
 
 	PDictionary trailerDict = boost::shared_static_cast<Dictionary>( trailerDictP );
 

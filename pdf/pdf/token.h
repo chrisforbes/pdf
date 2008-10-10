@@ -28,4 +28,4 @@ enum token_e
 }
 typedef token_e::token_e token;
 
-extern token Token( const char*& p, const char *& start );
+extern token Token( const char*& p, const char *& start, char const * end );

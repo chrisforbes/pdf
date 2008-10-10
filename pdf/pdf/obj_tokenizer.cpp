@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "token.h"
 
-static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
+static token InnerToken( const char*& p, const char *& /*out*/ tokenStart, char const * end )
 {
 	for(;;)
 	{
@@ -15,6 +15,8 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case '\v':
 		case ')':
 			++p;
+			if (p >= end)
+				return token_e::Unknown;	// broken token
 			continue;
 		case '%':
 			while( *p != '\n' && *p != '\r' )
@@ -57,7 +59,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		case '+':
 		case '-':
 			++p;
-			while( memchr( "0123456789", *p, 10 ) )
+			while( memchr( "0123456789", *p, 10 ) && p < end )
 				++p;
 
 			if( *p != '.' )
@@ -65,7 +67,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 
 			++p;
 
-			while( memchr( "0123456789", *p, 10 ) )
+			while( memchr( "0123456789", *p, 10 ) && p < end )
 				++p;
 			return token_e::NumberDouble;
 		case '[':
@@ -106,7 +108,7 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 			return token_e::Unknown;
 
 		default:
-			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) )
+			while( !memchr( "\t\r\v\n (){}[]<>/?%", *p, 17 ) && p < end )
 				++p;
 			return token_e::Keyword;
 		}
@@ -118,9 +120,11 @@ static token InnerToken( const char*& p, const char *& /*out*/ tokenStart )
 		if (memcmp( start, k, sizeof(k) - 1 ) == 0)\
 			return tok;
 
-token Token( const char *& p, const char *& start )
+token Token( const char *& p, const char *& start, char const * end )
 {
-	token t = InnerToken( p, start );
+	if (!end)
+		end = (char const *)-1;
+	token t = InnerToken( p, start, end );
 	if (t == token_e::Keyword)
 	{
 		MATCH_KEYWORD( "R", token_e::Ref );

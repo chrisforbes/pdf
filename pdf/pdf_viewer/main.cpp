@@ -110,9 +110,9 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 	::InvalidateRect( appHwnd, 0, true );
 	::UpdateWindow( appHwnd );		// force painting of UI NOW
 
-	char sz[64];
-	sprintf( sz, "all: %u ms", GetTickCount() - t );
-	MessageBoxA( 0, sz, "fail", 0 );
+	char sz[128];
+	sprintf( sz, "PDF Viewer - Startup time: %u ms", GetTickCount() - t );
+	SetWindowTextA( appHwnd, sz );
 
 	MSG msg;
 	while( ::GetMessage( &msg, 0, 0, 0 ) )

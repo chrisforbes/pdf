@@ -1,9 +1,7 @@
 - Text rendering
-- Clamp to end of document
 - Fix repaint (ScrollWindowEx where possible)
 - hex string parsing
 - Remove dynamic cast in Dictionary::Get
 - Link actions in NavigateToPage()
 - Fix horizontal scrolling of drop shadow
 - Fix cursors on view (grab/grabbing/link/etc)
-- Cant get to title page
