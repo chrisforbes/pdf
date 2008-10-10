@@ -204,6 +204,8 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	}
 }
 
+static const int WHEEL_SCROLL_PIXELS = 40;
+
 LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 {
 	switch( msg )
@@ -221,9 +223,25 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 	case WM_LBUTTONDOWN:
 		{
+			SetFocus( hwnd );
 			POINTS fail = MAKEPOINTS( lp );
 			haxy = fail.y;
 			offsety2 = offsety;
+			return 0;
+		}
+
+	case WM_MOUSEWHEEL:
+		{
+			int scrollAmount = ((int)wp) >> 16;
+			UINT uScroll;
+			if( !SystemParametersInfo( SPI_GETWHEELSCROLLLINES, 0, &uScroll, 0 ) )
+				uScroll = 3;
+			if( !uScroll )
+				return 0;
+
+			offsety += WHEEL_SCROLL_PIXELS * (int)uScroll * scrollAmount / WHEEL_DELTA;
+			::InvalidateRect( hwnd, 0, true );
+
 			return 0;
 		}
 
