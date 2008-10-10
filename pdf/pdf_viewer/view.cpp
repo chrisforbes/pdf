@@ -141,7 +141,35 @@ void ClampToEndOfDocument()
 		currentPage = nextPage;
 	}
 
-	// a problem for another day
+	// a problem for another day - also a blatant hack
+
+	PDictionary failPage = currentPage;
+	RECT clientRect;
+	GetClientRect( viewHwnd, &clientRect );
+	int foo = offsety;
+
+	while( true )
+	{
+		DoubleRect mediaBox = GetPageMediaBox( doc, failPage.get() );
+		PDictionary nextPage = doc->GetNextPage( failPage );
+
+		if (!nextPage)
+		{
+			if (foo + mediaBox.height() + PAGE_GAP < clientRect.bottom)
+			{
+				int d = clientRect.bottom - (foo + mediaBox.height() + PAGE_GAP);
+				offsety += d;
+				offsety2 += d;
+			}
+			return;
+		}
+
+		foo += mediaBox.height() + PAGE_GAP;
+
+		if (foo > clientRect.bottom)
+			return;
+		failPage = nextPage;
+	}
 }
 
 void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
@@ -152,8 +180,8 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	RECT clientRect;
 	::GetClientRect( hwnd, &clientRect );
 
+	ClampToEndOfDocument();				// ordering matters here!
 	ClampToStartOfDocument();
-	ClampToEndOfDocument();
 
 	int y = offsety;
 
@@ -175,9 +203,6 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 		//::Rectangle( dc, offset + (int)mediaBox.left, y, offset + (int)mediaBox.right, y + (int)height );
 		
 		PaintPageFromCache( hwnd, dc, mediaBox, offset, page, y );
-
-		page = doc->GetNextPage( page );
-		if (!page) break;
 
 		RECT dropshadow_right = { offset + (int)mediaBox.right, y + DROP_SHADOW_SIZE, 
 			offset + (int)mediaBox.right + DROP_SHADOW_SIZE, y + (int)height + DROP_SHADOW_SIZE };
@@ -201,6 +226,9 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 		// todo: unfail bottom-left corner as soon as we do horizontal scroll as well
 
 		y += PAGE_GAP;
+
+		page = doc->GetNextPage( page );
+		if (!page) break;
 	}
 }
 
