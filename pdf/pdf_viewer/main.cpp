@@ -51,6 +51,7 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 }
 
 extern Document * LoadFile( HWND appHwnd, wchar_t const * filename );
+extern void DumpPage( Dictionary * start, const XrefTable & objmap );
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 {
@@ -98,6 +99,8 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 
 	PDictionary page0 = doc->GetPage(0);
 	PDictionary page1 = doc->GetPage(1);
+
+	DumpPage(page0.get(), doc->xrefTable);
 
 	::LocalFree( argv );
 

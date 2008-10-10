@@ -47,72 +47,43 @@ void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & 
 void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 {
 	if (!info->itemNew.hItem)
-	{
-		SetWindowText( appHwnd, L"(no page) - PDF Viewer" );
 		return;
-	}
 	
 	Dictionary * dict = (Dictionary *)info->itemNew.lParam;
 
 	if (!dict)
-	{
-		SetWindowText( appHwnd, L"(no page [2]) - PDF Viewer" );
 		return;
-	}
-
-	PString itemTitle = dict->Get<String>( "Title", doc->xrefTable );
-
-	char sz[1024];
-	memcpy( sz, itemTitle->start, itemTitle->Length() );
-	sz[itemTitle->Length()] = 0;
-
-	SetWindowTextA( appHwnd, sz );	// WTF, hax
-
-	// todo: follow link
 
 	PObject dest = dict->Get( "Dest", doc->xrefTable );
 	if (!dest)
-	{
-		SetWindowText( appHwnd, L"no dest key" );
 		return;
-	}
-
-	if (dest->Type() == ObjectType::Array)
-	{
-		// todo: navigate to referenced page
-		SetWindowText( appHwnd, L"dest key = array" );
-		return;
-	}
 
 	if (dest->Type() == ObjectType::String)
 	{
 		String * s = (String *)dest.get();
+		dest = Object::ResolveIndirect_( doc->namedDestinations[*s], doc->xrefTable );
+	}
 
-		PObject destVal = Object::ResolveIndirect_(doc->namedDestinations[*s], doc->xrefTable);
-		PArray destArray;
-		if (destVal->Type() == ObjectType::Dictionary)
-		{
-			PDictionary d = boost::shared_static_cast<Dictionary>(destVal);
-			//TODO: Implement link action
-			//For now handle everything as GoTo (here be Raptors)
-			//d->Get<Name>("S", doc->xrefTable);
-			destArray = d->Get<Array>("D", doc->xrefTable);
-		}
-		else if (destVal->Type() == ObjectType::Array)
-			destArray = boost::shared_static_cast<Array>(destVal);
+	PArray destArray;
 
-		if (destArray)
-		{
-			if (destArray->elements.empty()) return;
-			
-			PDictionary page = boost::shared_static_cast<Dictionary>(
-				Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable));
+	if (dest->Type() == ObjectType::Dictionary)
+	{
+		PDictionary d = boost::shared_static_cast<Dictionary>(dest);
+		//TODO: Implement link action
+		//For now handle everything as GoTo (here be Raptors)
+		//d->Get<Name>("S", doc->xrefTable);
+		destArray = d->Get<Array>("D", doc->xrefTable);
+	}
+	else if (dest->Type() == ObjectType::Array)
+		destArray = boost::shared_static_cast<Array>(dest);
 
-			SetCurrentPage( page );
+	if (destArray)
+	{
+		if (destArray->elements.empty()) return;
+		
+		PDictionary page = boost::shared_static_cast<Dictionary>(
+			Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable));
 
-			size_t pageNum = doc->GetPageIndex( page );
-			sprintf(sz, "page %u", pageNum + 1);
-			SetWindowTextA( appHwnd, sz );
-		}
+		SetCurrentPage( page );
 	}
 }

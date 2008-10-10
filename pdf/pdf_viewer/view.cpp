@@ -2,7 +2,7 @@
 
 HWND viewHwnd;
 wchar_t const * viewWndClass = L"pdf-viewwnd";
-PDictionary currentPage;	// todo: attach to instance of this window, so we can have >1
+PDictionary currentPage;
 extern Document * doc;
 int offsety = 0;
 int offsety2 = 0;	// hax, fix names
@@ -13,14 +13,13 @@ int haxy = 0;
 
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 
-void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
+void PaintPage( HWND hwnd, HDC hdc, PAINTSTRUCT const * ps, PDictionary page, int y )
 {
-	if (!currentPage)
-		return;
 
-	RECT clientRect;
-	::GetClientRect( hwnd, &clientRect );
+}
 
+void ClampToStartOfDocument()
+{
 	while(offsety > PAGE_GAP)
 	{
 		PDictionary prevPage = doc->GetPrevPage( currentPage );
@@ -30,15 +29,32 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 		currentPage = prevPage;
 		DoubleRect mediaBox = GetPageMediaBox( doc, prevPage.get() );
 
-		offsety -= (mediaBox.bottom - mediaBox.top) - PAGE_GAP;
-		offsety2 -= (mediaBox.bottom - mediaBox.top) - PAGE_GAP;
+		offsety -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
+		offsety2 -= (mediaBox.bottom - mediaBox.top) + PAGE_GAP;
 	}
 
-	int y = offsety;
-
 	if (!doc->GetPageIndex( currentPage ))
-		if (y > PAGE_GAP)
-			offsety = y = PAGE_GAP;
+		if (offsety > PAGE_GAP)
+			offsety = PAGE_GAP;
+}
+
+void ClampToEndOfDocument()
+{
+	// a problem for another day
+}
+
+void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
+{
+	if (!currentPage)
+		return;
+
+	RECT clientRect;
+	::GetClientRect( hwnd, &clientRect );
+
+	ClampToStartOfDocument();
+	ClampToEndOfDocument();
+
+	int y = offsety;
 
 	PDictionary page = currentPage;
 
@@ -73,6 +89,8 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 			dropshadow_right.top };
 
 		HBRUSH black = (HBRUSH)::GetStockObject(BLACK_BRUSH);
+
+		PaintPage( hwnd, dc, ps, page, y );
 
 		y += height;
 

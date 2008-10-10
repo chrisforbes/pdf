@@ -116,7 +116,6 @@ PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
 
 	PObject o = Parse( p );
 
-	// todo: attach dict to stream
 	token t = Token( p, tokenStart );
 	if ( t == token_e::KeywordEndObj )
 		return o;
@@ -162,7 +161,7 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 	return ParseIndirectObject( (Indirect *)p.get(), objmap );
 }
 
-/*void DumpPage( Dictionary * start, const XrefTable & objmap )
+void DumpPage( Dictionary * start, const XrefTable & objmap )
 {
 	PObject content = start->Get( "Contents", objmap );
 	if( !content )
@@ -181,34 +180,7 @@ PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
 	else
 		//Invalid file
 		DebugBreak();
-}*/
-
-/*void WalkPageTree( const PDictionary& start, const XrefTable & objmap )
-{
-	return;
-	PName type = start->Get<Name>( "Type", objmap );
-	if (!type)
-		DebugBreak();
-
-	if (String( "Page" ) == type->str)
-	{
-		//DumpPage( start.get(), objmap );
-	}
-	else
-	{
-		PArray children = start->Get<Array>( "Kids", objmap );
-		if (!children)
-			DebugBreak();
-
-		std::vector< PObject >::const_iterator it;
-		for( it = children->elements.begin(); it != children->elements.end(); it++ )
-		{
-			PDictionary child = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect_( *it, objmap ) );
-			WalkPageTree( child, objmap );
-		}
-	}
-}*/
-
+}
 
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
