@@ -113,12 +113,11 @@ int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 			u = GetTickCount() - u;
 			v = GetTickCount();
 			SetCurrentPage( doc->GetPage( 0 ) );
+			v = GetTickCount() - v;
 		}
 	}
 
 	::LocalFree( argv );
-
-	v = GetTickCount() - v;
 
 	char sz[256];
 	sprintf( sz, "PDF Viewer - Startup time: %u ms Outline:%u render:%u ms", GetTickCount() - t, u, v );

@@ -71,7 +71,7 @@ void PaintPage( int width, int height, PDictionary page )
 static std::vector<std::pair<size_t, HBITMAP>> cachedPages;
 static const int PAGE_CACHE_MAX_SIZE = 4;
 
-void PaintPageFromCache( HWND hwnd, HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
+void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
 {
 	HBITMAP cacheBitmap = NULL;
 	size_t pageNum = doc->GetPageIndex( page );
@@ -198,12 +198,12 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	{
 		DoubleRect mediaBox = GetPageMediaBox( doc, page.get() );
 
-		double width = mediaBox.right - mediaBox.left;
+		double width = mediaBox.width();
 		int offset = (int)(clientRect.right - width) / 2;
 
-		double height = mediaBox.bottom - mediaBox.top;
+		double height = mediaBox.height();
 
-		PaintPageFromCache( hwnd, dc, mediaBox, offset, page, y );
+		PaintPageFromCache( dc, mediaBox, offset, page, y );
 
 		RECT dropshadow_right = { offset + (int)mediaBox.right, y + DROP_SHADOW_SIZE, 
 			offset + (int)mediaBox.right + DROP_SHADOW_SIZE, y + (int)height + DROP_SHADOW_SIZE };
@@ -233,6 +233,20 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	}
 }
 
+void PaintAll( HWND hwnd, HDC dc )
+{
+	if( !doc )
+		return;
+	PDictionary page = doc->GetPage( 0 );
+	while( page )
+	{
+		DoubleRect mediaBox = GetPageMediaBox( doc, page.get() );
+		PaintPageFromCache( dc, mediaBox, 0, page, 0 );
+
+		page = doc->GetNextPage( page );
+	}	
+}
+
 static const int WHEEL_SCROLL_PIXELS = 40;
 
 LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
@@ -246,6 +260,7 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			if( !cacheDC )
 				cacheDC = CreateCompatibleDC( dc );
 			PaintView( hwnd, dc, &ps );
+			//PaintAll( hwnd, dc );
 			::ReleaseDC( hwnd, dc );
 			return 0;
 		}
