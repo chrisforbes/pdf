@@ -41,7 +41,16 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			if (hdr->hwndFrom == outlineHwnd)
 			{
 				if (hdr->code == TVN_SELCHANGED)
+				{
 					::NavigateToPage( appHwnd, doc, (NMTREEVIEW *) hdr );
+					return 0;
+				}
+				
+				if (hdr->code = TVN_ITEMEXPANDED)
+				{
+					::ExpandNode( doc, (NMTREEVIEW *) hdr );
+					return 0;
+				}
 			}
 			return ::DefWindowProc( hwnd, msg, wp, lp );
 		}

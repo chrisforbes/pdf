@@ -39,10 +39,32 @@ void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & 
 			(bool)item->Get( "First" ), parentItem, 
 			item );
 
-		BuildOutline( item, treeItem, objmap );
-
 		item = item->Get<Dictionary>( "Next", objmap ).get();
 	}
+}
+
+void ExpandNode( Document * doc, NMTREEVIEW * info )
+{
+	if (!doc || !info->itemNew.hItem)
+		return;
+
+	/* blatant hack. if we didnt get spurious messages, we wouldnt need this. */
+	/* thanks, commctrl guys! */
+
+	if (TreeView_GetChild( outlineHwnd, info->itemNew.hItem ))
+		return;	// already populated
+
+	// grab the fields we actually care about (value ptr, whether we should have children)
+	TVITEM item;
+	memset( &item, 0, sizeof( item ) );
+	item.mask = TVIF_HANDLE | TVIF_PARAM | TVIF_CHILDREN;
+	item.hItem = info->itemNew.hItem;
+
+	TreeView_GetItem( outlineHwnd, &item );
+
+	// it's possible that lParam = 0 here, since the tree has a builtin root node
+	if (item.lParam && item.cChildren)
+		BuildOutline( (Dictionary *)item.lParam, item.hItem, doc->xrefTable );
 }
 
 void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
