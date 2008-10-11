@@ -41,16 +41,86 @@ struct TextState
 	}
 };
 
+static size_t UnescapeString( char * dest, char const * src, char const * srcend )
+{
+	char * destStart = dest;
+
+	while( src < srcend )
+	{
+		if (*src == '\\')
+		{
+			++src;
+			switch( *src )
+			{
+			case 'n':
+				*dest++ = '\n';
+				break;
+			case 'r':
+				*dest++ = '\r';
+				break;
+			case 't':
+				*dest++ = '\t';
+				break;
+			case 'b':
+				dest--;
+			case 'f':
+				*dest++ = '\f';
+				break;
+			case '(':
+				*dest++ = '(';
+				break;
+			case ')':
+				*dest++ = ')';
+				break;
+			case '\\':
+				*dest++ = '\\';
+				break;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+				{
+					char temp[3], *pt = temp;
+
+					char * p = (char *)src;
+					while( src < p + 3 )
+					{
+						*pt++ = *src++;
+						if (*src < '0' || *src > '7')
+							break;
+					}
+
+					*dest++ = (char)strtol( temp, &p, 8 );
+					--src;
+				}
+				break;
+			default:
+				*dest++ = *src;
+			}
+		}
+		else
+			*dest++ = *src;
+
+		++src;
+	}
+
+	return dest - destStart;
+}
+
 static void DrawString( String * str, int width, int height, TextState& t )
 {
 	SIZE size;
 	char sz[4096];
-	memcpy( sz, str->start, str->Length() );
-	sz[str->Length()] = 0;
+	size_t unescapedLen = UnescapeString( sz, str->start, str->end );
+	sz[unescapedLen] = 0;
 
-	GetTextExtentPoint32A( cacheDC, sz, str->Length(), &size );
+	GetTextExtentPoint32A( cacheDC, sz, unescapedLen, &size );
 
-	TextOutA( cacheDC, (int)t.m.v[4], height - (int)t.m.v[5], sz, str->Length() );
+	TextOutA( cacheDC, (int)t.m.v[4], height - (int)t.m.v[5], sz, unescapedLen );
 	t.m.v[4] += size.cx;
 }
 
@@ -69,6 +139,10 @@ void PaintPage( int width, int height, PDictionary page )
 	std::vector<PObject> args;
 
 	TextState t;
+
+	// select in a bogus font
+	SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
+	int oldMode = SetBkMode( cacheDC, TRANSPARENT );
 
 	DWORD time = GetTickCount();
 	while( p < pageContent + length )
@@ -220,6 +294,8 @@ void PaintPage( int width, int height, PDictionary page )
 	char fail[128];
 	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, time );
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
+
+	SetBkMode( cacheDC, oldMode );
 }
 
 static std::vector<std::pair<size_t, HBITMAP>> cachedPages;
