@@ -17,6 +17,30 @@ HCURSOR openHand, closedHand, current;
 
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 
+struct Matrix
+{
+	double v[6];
+
+	Matrix()
+	{
+		v[0] = 1; v[1] = 0; v[2] = 0; v[3] = 0; v[4] = 1; v[5] = 0;
+	}
+};
+
+struct TextState
+{
+	double c, w, h, l, rise;
+	int mode;
+	double fontSize;
+
+	Matrix m, lm;
+
+	TextState()
+		: c(0), w(0), h(100), l(0), rise(0), mode(0), fontSize(0), m(), lm()
+	{
+	}
+};
+
 void PaintPage( int width, int height, PDictionary page )
 {
 	::Rectangle( cacheDC, 0, 0, width, height );
@@ -31,28 +55,102 @@ void PaintPage( int width, int height, PDictionary page )
 	size_t numOperations = 0;
 	std::vector<PObject> args;
 
-	DWORD t = GetTickCount();
+	TextState t;
+
+	DWORD time = GetTickCount();
 	while( p < pageContent + length )
 	{
 		args.clear();
 		String op = ParseContent( p, pageContent + length, args );
 
-		if (op == String("Tm"))
+		if (op == String("Tc"))
 		{
-			// text placement
+			assert( args.size() == 1 );
+			t.c = ToNumber( args[0] );
+		}
+
+		else if (op == String("Tw"))
+		{
+			assert( args.size() == 1 );
+			t.w = ToNumber( args[0] );
+		}
+
+		else if (op == String("Tz"))
+		{
+			assert( args.size() == 1 );
+			t.h = 100 + ToNumber( args[0] );
+		}
+
+		else if (op == String("TL"))
+		{
+			assert( args.size() == 1 );
+			t.l = ToNumber( args[0] );
+		}
+
+		else if (op == String("Ts"))
+		{
+			assert( args.size() == 1 );
+			t.rise = ToNumber( args[0] );
+		}
+
+		else if (op == String("Tr"))
+		{
+			assert( args.size() == 1 );
+			t.mode = (int)ToNumber( args[0] );
+		}
+
+		else if (op == String("Tf"))
+		{
+			assert( args.size() == 2 );
+			// todo: font name is args[0]
+			t.fontSize = ToNumber( args[1] );
+		}
+
+		else if (op == String("Tm"))
+		{
+			// set text matrix explicit
 			assert( args.size() == 6 );
 
-			double _x = ToNumber( args[4] );
-			double _y = ToNumber( args[5] );
+			for( int i = 0; i < 6; i++ )
+				t.m.v[i] = ToNumber( args[i] );
 
-			::Rectangle( cacheDC, (int)_x - 10, (int)(height - _y - 10) ,
-				(int)_x + 10, (int)(height - _y + 10) );
+			t.lm = t.m;
+
+			::Rectangle( cacheDC, (int)t.m.v[4] - 10, (int)(height - t.m.v[5] - 10) ,
+				(int)t.m.v[4] + 10, (int)(height - t.m.v[5] + 10) );
+		}
+
+		else if (op == String("T*"))
+		{
+			// next line based on leading
+			assert( args.size() == 0 );
+			t.lm.v[5] += t.l;
+			t.m = t.lm;
+		}
+
+		else if (op == String("TD"))
+		{
+			// next line, setting leading
+			assert( args.size() == 2 );
+			t.l = -ToNumber( args[1] );		// todo: check this
+			t.lm.v[4] += ToNumber( args[0] );
+			t.lm.v[5] += ToNumber( args[1] );
+			t.m = t.lm;
+		}
+
+		else if (op == String("Td"))
+		{
+			// next line with explicit positioning, preserve leading
+			assert( args.size() == 2 );
+			t.lm.v[4] += ToNumber( args[0] );
+			t.lm.v[5] += ToNumber( args[1] );
+			t.m = t.lm;
 		}
 
 		++numOperations;
 	}
 
-	t = GetTickCount() - t;
+	time = GetTickCount() - time;
 
 	size_t n = doc->GetPageIndex( page );
 	assert( doc->GetPage( n ) == page );
@@ -64,7 +162,7 @@ void PaintPage( int width, int height, PDictionary page )
 	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
 
 	char fail[128];
-	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, t );
+	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, time );
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
 }
 
