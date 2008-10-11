@@ -16,6 +16,7 @@ HCURSOR openHand, closedHand, current;
 #define DROP_SHADOW_SIZE	2
 
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
+void SetCurrentPage( PDictionary page );	// declared later, this file
 
 struct Matrix
 {
@@ -41,76 +42,6 @@ struct TextState
 	}
 };
 
-static size_t UnescapeString( char * dest, char const * src, char const * srcend )
-{
-	char * destStart = dest;
-
-	while( src < srcend )
-	{
-		if (*src == '\\')
-		{
-			++src;
-			switch( *src )
-			{
-			case 'n':
-				*dest++ = '\n';
-				break;
-			case 'r':
-				*dest++ = '\r';
-				break;
-			case 't':
-				*dest++ = '\t';
-				break;
-			case 'b':
-				dest--;
-			case 'f':
-				*dest++ = '\f';
-				break;
-			case '(':
-				*dest++ = '(';
-				break;
-			case ')':
-				*dest++ = ')';
-				break;
-			case '\\':
-				*dest++ = '\\';
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-				{
-					char temp[3], *pt = temp;
-
-					char * p = (char *)src;
-					while( src < p + 3 )
-					{
-						*pt++ = *src++;
-						if (*src < '0' || *src > '7')
-							break;
-					}
-
-					*dest++ = (char)strtol( temp, &p, 8 );
-					--src;
-				}
-				break;
-			default:
-				*dest++ = *src;
-			}
-		}
-		else
-			*dest++ = *src;
-
-		++src;
-	}
-
-	return dest - destStart;
-}
-
 static void DrawString( String * str, int width, int height, TextState& t )
 {
 	if (!str)
@@ -118,6 +49,9 @@ static void DrawString( String * str, int width, int height, TextState& t )
 
 	SIZE size;
 	char sz[4096];
+
+	assert( str->Length() < 4096 && "too damn long" );
+
 	size_t unescapedLen = UnescapeString( sz, str->start, str->end );
 	sz[unescapedLen] = 0;
 
@@ -127,13 +61,19 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	t.m.v[4] += size.cx;
 }
 
-void PaintPage( int width, int height, PDictionary page )
-{
-	::Rectangle( cacheDC, 0, 0, width, height );
-	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
-	if (!content)
-		return;			// multiple content streams
+extern HWND appHwnd;
 
+static void SetFont( Name name, double size, TextState& t )
+{
+	char sz[64];
+	sprintf( sz, "size: %2.2f", (float)size );
+	SetWindowTextA( appHwnd, sz );
+	t.fontSize = size;
+}
+
+// returns number of ops
+static size_t PaintPageContent( int width, int height, PStream content, TextState& t )
+{
 	size_t length;
 	char const * pageContent = content->GetStreamBytes( doc->xrefTable, &length );
 	char const * p = pageContent;
@@ -141,13 +81,10 @@ void PaintPage( int width, int height, PDictionary page )
 	size_t numOperations = 0;
 	std::vector<PObject> args;
 
-	TextState t;
-
 	// select in a bogus font
 	SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
 	int oldMode = SetBkMode( cacheDC, TRANSPARENT );
 
-	DWORD time = GetTickCount();
 	while( p < pageContent + length )
 	{
 		args.clear();
@@ -192,9 +129,7 @@ void PaintPage( int width, int height, PDictionary page )
 		else if (op == String("Tf"))
 		{
 			assert( args.size() == 2 );
-			// todo: font name is args[0]
-			
-			t.fontSize = 9;//ToNumber( args[1] );
+			SetFont( *(Name *)args[0].get(), ToNumber( args[1] ), t );
 		}
 
 		else if (op == String("Tm"))
@@ -212,7 +147,7 @@ void PaintPage( int width, int height, PDictionary page )
 		{
 			// next line based on leading
 			assert( args.size() == 0 );
-			t.lm.v[5] += t.fontSize * t.l;
+			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
 			t.m = t.lm;
 		}
 
@@ -221,8 +156,8 @@ void PaintPage( int width, int height, PDictionary page )
 			// next line, setting leading
 			assert( args.size() == 2 );
 			t.l = -ToNumber( args[1] );		// todo: check this
-			t.lm.v[4] += t.fontSize * ToNumber( args[0] );
-			t.lm.v[5] += t.fontSize * ToNumber( args[1] );
+			t.lm.v[4] += t.fontSize * t.lm.v[0] * ToNumber( args[0] );
+			t.lm.v[5] += t.fontSize * t.lm.v[3] * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
@@ -230,15 +165,15 @@ void PaintPage( int width, int height, PDictionary page )
 		{
 			// next line with explicit positioning, preserve leading
 			assert( args.size() == 2 );
-			t.lm.v[4] += t.fontSize * ToNumber( args[0] );
-			t.lm.v[5] += t.fontSize * ToNumber( args[1] );
+			t.lm.v[4] += t.fontSize * t.lm.v[0] * ToNumber( args[0] );
+			t.lm.v[5] += t.fontSize * t.lm.v[3] * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
 		else if (op == String("'"))
 		{
 			assert( args.size() == 1 );
-			t.lm.v[5] += t.fontSize * t.l;
+			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[0].get(), width, height, t );
 		}
@@ -248,7 +183,7 @@ void PaintPage( int width, int height, PDictionary page )
 			assert( args.size() == 3 );
 			t.w = ToNumber( args[0] );
 			t.c = ToNumber( args[1] );
-			t.lm.v[5] += t.fontSize * t.l;
+			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[2].get(), width, height, t );
 		}
@@ -281,6 +216,35 @@ void PaintPage( int width, int height, PDictionary page )
 		++numOperations;
 	}
 
+	SetBkMode( cacheDC, oldMode );
+	return numOperations;
+}
+
+static void PaintPage( int width, int height, PDictionary page )
+{
+	::Rectangle( cacheDC, 0, 0, width, height );
+	size_t numOperations = 0;
+
+	TextState t;
+
+	DWORD time = GetTickCount();
+	
+	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
+	if (content)
+		numOperations += PaintPageContent( width, height, content, t );
+
+	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
+	if (array)
+	{
+		for( std::vector<PObject>::iterator it = array->elements.begin();
+			it != array->elements.end(); it++ )
+		{
+			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
+			if (stream)
+				numOperations += PaintPageContent( width, height, stream, t );
+		}
+	}
+
 	time = GetTickCount() - time;
 
 	size_t n = doc->GetPageIndex( page );
@@ -293,14 +257,34 @@ void PaintPage( int width, int height, PDictionary page )
 	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
 
 	char fail[128];
-	sprintf( fail, "len: %u ops: %u t: %u ms", length, numOperations, time );
+	sprintf( fail, "len: %u ops: %u t: %u ms", 0u, numOperations, time );
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
-
-	SetBkMode( cacheDC, oldMode );
 }
 
 static std::vector<std::pair<size_t, HBITMAP>> cachedPages;
 static const int PAGE_CACHE_MAX_SIZE = 4;
+
+static void EvictCacheItem( std::pair<size_t, HBITMAP> item )
+{
+	DeleteObject( cachedPages[0].second );
+	PDictionary page = doc->GetPage( cachedPages[0].first );
+	
+	PStream stream = page->Get<Stream>( "Contents", doc->xrefTable );
+	if (stream)
+		stream->EvictCache();
+
+	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
+	if (array)
+	{
+		for( std::vector<PObject>::iterator it = array->elements.begin();
+			it != array->elements.end(); it++ )
+		{
+			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
+			if (stream)
+				stream->EvictCache();
+		}
+	}
+}
 
 void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
 {
@@ -325,8 +309,7 @@ void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDictionary
 
 		if( cachedPages.size() >= PAGE_CACHE_MAX_SIZE )
 		{
-			DeleteObject( cachedPages[0].second );
-			doc->GetPage( cachedPages[0].first )->Get<Stream>( "Contents", doc->xrefTable )->EvictCache();
+			EvictCacheItem( cachedPages[0] );
 			cachedPages.erase( cachedPages.begin() );
 		}
 		PaintPage( (int)rect.width(), (int)rect.height(), page );
@@ -464,20 +447,6 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	}
 }
 
-void PaintAll( HWND hwnd, HDC dc )
-{
-	if( !doc )
-		return;
-	PDictionary page = doc->GetPage( 0 );
-	while( page )
-	{
-		DoubleRect mediaBox = GetPageMediaBox( doc, page.get() );
-		PaintPageFromCache( dc, mediaBox, 0, page, 0 );
-
-		page = doc->GetNextPage( page );
-	}	
-}
-
 static const int WHEEL_SCROLL_PIXELS = 40;
 
 LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
@@ -491,7 +460,6 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			if( !cacheDC )
 				cacheDC = CreateCompatibleDC( dc );
 			PaintView( hwnd, dc, &ps );
-			//PaintAll( hwnd, dc );
 			::ReleaseDC( hwnd, dc );
 			return 0;
 		}
@@ -515,6 +483,23 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 	case WM_SETCURSOR:
 		{
 			SetCursor( current );
+			return 0;
+		}
+
+	case WM_KEYDOWN:
+		{
+			if (wp == VK_F3)
+			{
+				PDictionary page = doc->GetPage(0);
+				while( page )
+				{
+					SetCurrentPage( page );
+					UpdateWindow( hwnd );
+
+					page = doc->GetNextPage( page );
+				}
+			}
+
 			return 0;
 		}
 

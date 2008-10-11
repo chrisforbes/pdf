@@ -1,7 +1,7 @@
 #include "pch.h"
 
 static wchar_t const * wndClassName = L"pdf-appwnd";
-static HWND appHwnd;
+HWND appHwnd;
 extern HWND outlineHwnd;
 extern HWND viewHwnd;
 Document * doc = 0;

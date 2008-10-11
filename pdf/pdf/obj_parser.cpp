@@ -110,3 +110,58 @@ String ParseContent( char const *& p, char const * end, std::vector<PObject>& in
 		intoVector.push_back( Parse( p, end ) );
 	}
 }
+
+size_t UnescapeString( char * dest, char const * src, char const * srcend )
+{
+	char * destStart = dest;
+
+	while( src < srcend )
+	{
+		if (*src == '\\')
+		{
+			++src;
+			switch( *src )
+			{
+			case 'n': *dest++ = '\n'; break;
+			case 'r': *dest++ = '\r'; break;
+			case 't': *dest++ = '\t'; break;
+			case 'b': if (dest > destStart) dest--; break;	/* todo: dont fuck this up */
+			case 'f': *dest++ = '\f'; break;
+			case '(': *dest++ = '('; break;
+			case ')': *dest++ = ')'; break;
+			case '\\': *dest++ = '\\'; break;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+				{
+					char temp[3], *pt = temp;
+
+					char * p = (char *)src;
+					while( src < p + 3 )
+					{
+						*pt++ = *src++;
+						if (*src < '0' || *src > '7')
+							break;
+					}
+
+					*dest++ = (char)strtol( temp, &p, 8 );
+					--src;
+				}
+				break;
+			default:
+				*dest++ = *src;
+			}
+		}
+		else
+			*dest++ = *src;
+
+		++src;
+	}
+
+	return dest - destStart;
+}
