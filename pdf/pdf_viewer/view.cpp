@@ -33,13 +33,18 @@ struct TextState
 	double c, w, h, l, rise;
 	int mode;
 	double fontSize;
+	char fontName[128];	// better not be bigger than this
+	size_t fontNameLen;
 
 	Matrix m, lm;
 
 	TextState()
-		: c(0), w(0), h(100), l(0), rise(0), mode(0), fontSize(0), m(), lm()
+		: c(0), w(0), h(100), l(0), rise(0), mode(0), fontSize(0), m(), lm(), fontNameLen(0)
 	{
 	}
+
+	double EffectiveFontHeight() const { return fontSize * lm.v[3]; }
+	double EffectiveFontWidth() const { return fontSize * lm.v[0]; }
 };
 
 static void DrawString( String * str, int width, int height, TextState& t )
@@ -61,15 +66,18 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	t.m.v[4] += size.cx;
 }
 
-extern HWND appHwnd;
-
-static void SetFont( Name name, double size, TextState& t )
+static void BindFont( TextState& t )
 {
-	char sz[64];
-	sprintf( sz, "size: %2.2f", (float)size );
-	SetWindowTextA( appHwnd, sz );
-	t.fontSize = size;
+	HFONT f = CreateFont( (int)t.EffectiveFontHeight(), 0, 0, 0, FW_DONTCARE, 0, 0, 0, DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 0, L"Segoe UI" );  
+
+	assert( f );
+
+	HFONT oldFont = (HFONT)SelectObject( cacheDC, f );
+	DeleteObject( oldFont );	// check: better be benign on things returned by GetStockObject() etc
 }
+
+extern HWND appHwnd;
 
 // returns number of ops
 static size_t PaintPageContent( int width, int height, PStream content, TextState& t )
@@ -82,7 +90,7 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 	std::vector<PObject> args;
 
 	// select in a bogus font
-	SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
+//	SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
 	int oldMode = SetBkMode( cacheDC, TRANSPARENT );
 
 	while( p < pageContent + length )
@@ -129,7 +137,10 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 		else if (op == String("Tf"))
 		{
 			assert( args.size() == 2 );
-			SetFont( *(Name *)args[0].get(), ToNumber( args[1] ), t );
+			PName name = boost::shared_static_cast<Name>(args[0]);
+			memcpy( t.fontName, name->str.start, name->str.Length() );
+			t.fontNameLen = name->str.Length();
+			t.fontSize = ToNumber(args[1]);
 		}
 
 		else if (op == String("Tm"))
@@ -140,7 +151,12 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 			for( int i = 0; i < 6; i++ )
 				t.m.v[i] = ToNumber( args[i] );
 
+			// since lm.v[0] and lm.v[3] are the "real" font size,
+			// we need to regen our font here
+
 			t.lm = t.m;
+
+			BindFont( t );
 		}
 
 		else if (op == String("T*"))
@@ -208,7 +224,7 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 				{
 					// todo: non-horizontal writing modes
 					double k = ToNumber( *it );
-					t.m.v[4] -= k / 1000;
+					t.m.v[4] -= /*t.lm.v[0] * */k / 1000;
 				}
 			}
 		}
@@ -249,6 +265,9 @@ static void PaintPage( int width, int height, PDictionary page )
 
 	size_t n = doc->GetPageIndex( page );
 	assert( doc->GetPage( n ) == page );
+
+	HFONT oldFont = (HFONT)SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
+	DeleteObject( oldFont );
 
 	// get the page number (hack)
 	size_t pageNumber = doc->GetPageIndex( page );
@@ -490,6 +509,7 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 		{
 			if (wp == VK_F3)
 			{
+				SetWindowText( appHwnd, L"PDF Viewer - Running Test - Press <ESC> to cancel" );
 				PDictionary page = doc->GetPage(0);
 				while( page )
 				{
@@ -497,7 +517,15 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 					UpdateWindow( hwnd );
 
 					page = doc->GetNextPage( page );
+
+					if (GetAsyncKeyState( VK_ESCAPE ) != 0)
+					{
+						SetWindowText( appHwnd, L"PDF Viewer - Test Canceled" );
+						return 0;
+					}
 				}
+
+				SetWindowText( appHwnd, L"PDF Viewer - Test complete" );
 			}
 
 			return 0;
