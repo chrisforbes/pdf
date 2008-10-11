@@ -27,6 +27,9 @@ HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTRE
 
 void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & objmap )
 {
+	if (!parent)
+		return;
+
 	Dictionary * item = parent->Get<Dictionary>( "First", objmap ).get();
 	
 	while( item )

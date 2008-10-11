@@ -207,18 +207,17 @@ PDictionary ReadTopLevelTrailer( Document * doc, MappedFile const & f, XrefTable
 		return PDictionary();
 	}
 
-	PDictionary outlineDict = rootDict->Get<Dictionary>( "Outlines", objmap );
-	if (!outlineDict)
-	{
-		MessageBox( 0, L"No (or bogus) outline", L"fail", 0 );
-		return PDictionary();
-	}
-
 	PDictionary pageTreeRoot = rootDict->Get<Dictionary>( "Pages", objmap );
 	assert( pageTreeRoot );
 
 	doc->pageRoot = pageTreeRoot;
 	doc->documentCatalog = rootDict;
+
+	PDictionary outlineDict = rootDict->Get<Dictionary>( "Outlines", objmap );
+	if (!outlineDict)
+	{
+		return PDictionary();
+	}
 
 	return outlineDict;
 }
@@ -285,7 +284,7 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 	doc->outlineRoot = ReadTopLevelTrailer( doc, *f, doc->xrefTable, trailer );
 
 	PDictionary nameDict = doc->documentCatalog->Get<Dictionary>( "Names", doc->xrefTable );
-	doc->nameTreeRoot = nameDict->Get<Dictionary>( "Dests", doc->xrefTable );
+	doc->nameTreeRoot = nameDict ? nameDict->Get<Dictionary>( "Dests", doc->xrefTable ) : PDictionary();
 //	LoadNamedDestinations( doc );
 
 	return doc;

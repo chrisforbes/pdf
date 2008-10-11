@@ -113,6 +113,9 @@ static size_t UnescapeString( char * dest, char const * src, char const * srcend
 
 static void DrawString( String * str, int width, int height, TextState& t )
 {
+	if (!str)
+		return;
+
 	SIZE size;
 	char sz[4096];
 	size_t unescapedLen = UnescapeString( sz, str->start, str->end );
@@ -190,7 +193,8 @@ void PaintPage( int width, int height, PDictionary page )
 		{
 			assert( args.size() == 2 );
 			// todo: font name is args[0]
-			t.fontSize = ToNumber( args[1] );
+			
+			t.fontSize = 9;//ToNumber( args[1] );
 		}
 
 		else if (op == String("Tm"))
@@ -202,16 +206,13 @@ void PaintPage( int width, int height, PDictionary page )
 				t.m.v[i] = ToNumber( args[i] );
 
 			t.lm = t.m;
-
-	/*		::Rectangle( cacheDC, (int)t.m.v[4] - 10, (int)(height - t.m.v[5] - 10) ,
-				(int)t.m.v[4] + 10, (int)(height - t.m.v[5] + 10) );	*/
 		}
 
 		else if (op == String("T*"))
 		{
 			// next line based on leading
 			assert( args.size() == 0 );
-			t.lm.v[5] += t.l;
+			t.lm.v[5] += t.fontSize * t.l;
 			t.m = t.lm;
 		}
 
@@ -220,8 +221,8 @@ void PaintPage( int width, int height, PDictionary page )
 			// next line, setting leading
 			assert( args.size() == 2 );
 			t.l = -ToNumber( args[1] );		// todo: check this
-			t.lm.v[4] += ToNumber( args[0] );
-			t.lm.v[5] += ToNumber( args[1] );
+			t.lm.v[4] += t.fontSize * ToNumber( args[0] );
+			t.lm.v[5] += t.fontSize * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
@@ -229,15 +230,15 @@ void PaintPage( int width, int height, PDictionary page )
 		{
 			// next line with explicit positioning, preserve leading
 			assert( args.size() == 2 );
-			t.lm.v[4] += ToNumber( args[0] );
-			t.lm.v[5] += ToNumber( args[1] );
+			t.lm.v[4] += t.fontSize * ToNumber( args[0] );
+			t.lm.v[5] += t.fontSize * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
 		else if (op == String("'"))
 		{
 			assert( args.size() == 1 );
-			t.lm.v[5] += t.l;
+			t.lm.v[5] += t.fontSize * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[0].get(), width, height, t );
 		}
@@ -247,7 +248,7 @@ void PaintPage( int width, int height, PDictionary page )
 			assert( args.size() == 3 );
 			t.w = ToNumber( args[0] );
 			t.c = ToNumber( args[1] );
-			t.lm.v[5] += t.l;
+			t.lm.v[5] += t.fontSize * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[2].get(), width, height, t );
 		}
