@@ -41,6 +41,19 @@ struct TextState
 	}
 };
 
+static void DrawString( String * str, int width, int height, TextState& t )
+{
+	SIZE size;
+	char sz[4096];
+	memcpy( sz, str->start, str->Length() );
+	sz[str->Length()] = 0;
+
+	GetTextExtentPoint32A( cacheDC, sz, str->Length(), &size );
+
+	TextOutA( cacheDC, (int)t.m.v[4], height - (int)t.m.v[5], sz, str->Length() );
+	t.m.v[4] += size.cx;
+}
+
 void PaintPage( int width, int height, PDictionary page )
 {
 	::Rectangle( cacheDC, 0, 0, width, height );
@@ -116,8 +129,8 @@ void PaintPage( int width, int height, PDictionary page )
 
 			t.lm = t.m;
 
-			::Rectangle( cacheDC, (int)t.m.v[4] - 10, (int)(height - t.m.v[5] - 10) ,
-				(int)t.m.v[4] + 10, (int)(height - t.m.v[5] + 10) );
+	/*		::Rectangle( cacheDC, (int)t.m.v[4] - 10, (int)(height - t.m.v[5] - 10) ,
+				(int)t.m.v[4] + 10, (int)(height - t.m.v[5] + 10) );	*/
 		}
 
 		else if (op == String("T*"))
@@ -145,6 +158,49 @@ void PaintPage( int width, int height, PDictionary page )
 			t.lm.v[4] += ToNumber( args[0] );
 			t.lm.v[5] += ToNumber( args[1] );
 			t.m = t.lm;
+		}
+
+		else if (op == String("'"))
+		{
+			assert( args.size() == 1 );
+			t.lm.v[5] += t.l;
+			t.m = t.lm;
+			DrawString( (String *)args[0].get(), width, height, t );
+		}
+
+		else if (op == String("\""))
+		{
+			assert( args.size() == 3 );
+			t.w = ToNumber( args[0] );
+			t.c = ToNumber( args[1] );
+			t.lm.v[5] += t.l;
+			t.m = t.lm;
+			DrawString( (String *)args[2].get(), width, height, t );
+		}
+
+		else if (op == String("Tj"))
+		{
+			assert( args.size() == 1 );
+			DrawString( (String *)args[0].get(), width, height, t );
+		}
+
+		else if (op == String("TJ"))
+		{
+			assert( args.size() == 1 );
+			Array * arr = (Array *)args[0].get();
+
+			std::vector<PObject>::const_iterator it;
+			for( it = arr->elements.begin(); it != arr->elements.end(); it++ )
+			{
+				if ((*it)->Type() == ObjectType::String)
+					DrawString( (String *)it->get(), width, height, t );
+				else
+				{
+					// todo: non-horizontal writing modes
+					double k = ToNumber( *it );
+					t.m.v[4] -= k / 1000;
+				}
+			}
 		}
 
 		++numOperations;
