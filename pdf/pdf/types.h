@@ -279,6 +279,7 @@ public:
 		if( filter->Type() == ObjectType::Name )
 		{
 			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), start, end, &decodedLength );
+			decodedIsAllocated = true;
 			*length = decodedLength;
 		}
 		else
@@ -288,6 +289,16 @@ public:
 	}
 
 	const char* ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd, size_t * length );
+
+	void EvictCache()
+	{
+		if( decodedIsAllocated )
+		{
+			decodedIsAllocated = false;
+			free( (void*)decodedStart );
+			decodedStart = NULL;
+		}
+	}
 
 	~Stream()
 	{

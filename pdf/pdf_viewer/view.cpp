@@ -95,6 +95,7 @@ void PaintPageFromCache( HWND hwnd, HDC dc, DoubleRect const& rect, int offset, 
 		if( cachedPages.size() >= PAGE_CACHE_MAX_SIZE )
 		{
 			DeleteObject( cachedPages[0].second );
+			doc->GetPage( cachedPages[0].first )->Get<Stream>( "Contents", doc->xrefTable )->EvictCache();
 			cachedPages.erase( cachedPages.begin() );
 		}
 		PaintPage( (int)rect.width(), (int)rect.height(), page );
