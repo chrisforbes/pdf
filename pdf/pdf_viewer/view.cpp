@@ -141,6 +141,16 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 			memcpy( t.fontName, name->str.start, name->str.Length() );
 			t.fontNameLen = name->str.Length();
 			t.fontSize = ToNumber(args[1]);
+
+			BindFont(t);
+		}
+
+		else if (op == String("BT"))
+		{
+			assert( args.size() == 0 );
+			t.m = t.lm = Matrix();
+
+			BindFont(t);
 		}
 
 		else if (op == String("Tm"))
