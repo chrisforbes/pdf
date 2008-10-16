@@ -95,26 +95,9 @@ static PDictionary GetFont( PDictionary page, TextState& t )
 	return font;
 }
 
-static void InstallEmbeddedFont( PDictionary fontDescriptor )
-{
-	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
-	if (ff3)
-	{
-		size_t decodedLength;
-		char const * fontData = ff3->GetStreamBytes( doc->xrefTable, &decodedLength );
-
-		DWORD numInstalled = 0;
-		HANDLE hInstalledFont = ::AddFontMemResourceEx( (void *)fontData, decodedLength, 0, &numInstalled );
-
-		char sz[128];
-		sprintf( sz, "Installed fonts: %u  Handle: %u", numInstalled, hInstalledFont );
-		MessageBoxA( viewHwnd, sz, "InstallEmbeddedFont()", 0 );
-
-		ff3->EvictCache();	// the system took a copy, we dont need the decoded data anymore
-	}
-	else
-		assert( false && "Pre-PDF1.6 Embedded Font, noti" );
-}
+extern void InstallEmbeddedFont( PDictionary fontDescriptor );
+extern void RenderSomeFail( HDC intoDC, char const * content );
+extern void FontNewPage();
 
 static void BindFont( PDictionary page, TextState& t )
 {
@@ -127,6 +110,7 @@ static void BindFont( PDictionary page, TextState& t )
 	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
 
 	InstallEmbeddedFont( fontDescriptor );
+	RenderSomeFail( cacheDC, "PDF Reference" );
 
 	//DebugBreak();
 
@@ -312,6 +296,8 @@ static void PaintPage( int width, int height, PDictionary page )
 {
 	::Rectangle( cacheDC, 0, 0, width, height );
 	size_t numOperations = 0;
+
+	FontNewPage();
 
 	TextState t;
 

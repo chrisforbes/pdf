@@ -187,6 +187,10 @@
 			</File>
 		</Filter>
 		<File
+			RelativePath=".\font.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
 			>
 		</File>
