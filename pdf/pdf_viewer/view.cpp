@@ -66,8 +66,70 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	t.m.v[4] += size.cx;
 }
 
-static void BindFont( TextState& t )
+static PDictionary GetResources( PDictionary page )
 {
+	if (!page)
+		return PDictionary();
+
+	PDictionary resources = page->Get<Dictionary>( "Resources", doc->xrefTable );
+	
+	return resources 
+		? resources
+		: GetResources( page->Get<Dictionary>( "Parent", doc->xrefTable ) );
+}
+
+static PDictionary GetFont( PDictionary page, TextState& t )
+{
+	if (!t.fontNameLen)
+		return PDictionary();
+
+	PDictionary resources = GetResources( page );
+	if (!resources)
+		return PDictionary();
+
+	PDictionary fonts = resources->Get<Dictionary>( "Font", doc->xrefTable );
+	if (!fonts)
+		return PDictionary();
+
+	PDictionary font = fonts->Get<Dictionary>( t.fontName, doc->xrefTable );
+	return font;
+}
+
+static void InstallEmbeddedFont( PDictionary fontDescriptor )
+{
+	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
+	if (ff3)
+	{
+		size_t decodedLength;
+		char const * fontData = ff3->GetStreamBytes( doc->xrefTable, &decodedLength );
+
+		DWORD numInstalled = 0;
+		HANDLE hInstalledFont = ::AddFontMemResourceEx( (void *)fontData, decodedLength, 0, &numInstalled );
+
+		char sz[128];
+		sprintf( sz, "Installed fonts: %u  Handle: %u", numInstalled, hInstalledFont );
+		MessageBoxA( viewHwnd, sz, "InstallEmbeddedFont()", 0 );
+
+		ff3->EvictCache();	// the system took a copy, we dont need the decoded data anymore
+	}
+	else
+		assert( false && "Pre-PDF1.6 Embedded Font, noti" );
+}
+
+static void BindFont( PDictionary page, TextState& t )
+{
+	PDictionary font = GetFont( page, t );
+	if (!font)
+		return;
+
+	String subtype = font->Get<Name>( "Subtype", doc->xrefTable )->str;
+	String baseFont = font->Get<Name>( "BaseFont", doc->xrefTable )->str;
+	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
+
+	InstallEmbeddedFont( fontDescriptor );
+
+	//DebugBreak();
+
 	HFONT f = CreateFont( (int)t.EffectiveFontHeight(), 0, 0, 0, FW_DONTCARE, 0, 0, 0, DEFAULT_CHARSET,
 		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 0, L"Segoe UI" );  
 
@@ -80,7 +142,7 @@ static void BindFont( TextState& t )
 extern HWND appHwnd;
 
 // returns number of ops
-static size_t PaintPageContent( int width, int height, PStream content, TextState& t )
+static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t )
 {
 	size_t length;
 	char const * pageContent = content->GetStreamBytes( doc->xrefTable, &length );
@@ -90,7 +152,6 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 	std::vector<PObject> args;
 
 	// select in a bogus font
-//	SelectObject( cacheDC, (HFONT)GetStockObject( DEFAULT_GUI_FONT ) );
 	int oldMode = SetBkMode( cacheDC, TRANSPARENT );
 
 	while( p < pageContent + length )
@@ -140,9 +201,10 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 			PName name = boost::shared_static_cast<Name>(args[0]);
 			memcpy( t.fontName, name->str.start, name->str.Length() );
 			t.fontNameLen = name->str.Length();
+			t.fontName[ t.fontNameLen ] = 0;
 			t.fontSize = ToNumber(args[1]);
 
-			BindFont(t);
+			BindFont( page, t );
 		}
 
 		else if (op == String("BT"))
@@ -150,7 +212,7 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 			assert( args.size() == 0 );
 			t.m = t.lm = Matrix();
 
-			BindFont(t);
+			BindFont( page, t );
 		}
 
 		else if (op == String("Tm"))
@@ -166,7 +228,7 @@ static size_t PaintPageContent( int width, int height, PStream content, TextStat
 
 			t.lm = t.m;
 
-			BindFont( t );
+			BindFont( page, t );
 		}
 
 		else if (op == String("T*"))
@@ -257,7 +319,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (content)
-		numOperations += PaintPageContent( width, height, content, t );
+		numOperations += PaintPageContent( width, height, page, content, t );
 
 	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
 	if (array)
@@ -267,7 +329,7 @@ static void PaintPage( int width, int height, PDictionary page )
 		{
 			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
 			if (stream)
-				numOperations += PaintPageContent( width, height, stream, t );
+				numOperations += PaintPageContent( width, height, page, stream, t );
 		}
 	}
 
