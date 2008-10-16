@@ -403,14 +403,14 @@ void ClampToEndOfDocument()
 		{
 			if (foo + mediaBox.height() + PAGE_GAP < clientRect.bottom)
 			{
-				int d = clientRect.bottom - (foo + mediaBox.height() + PAGE_GAP);
+				int d = (int)(clientRect.bottom - (foo + mediaBox.height() + PAGE_GAP));
 				offsety += d;
 				offsety2 += d;
 			}
 			return;
 		}
 
-		foo += mediaBox.height() + PAGE_GAP;
+		foo += (int)(mediaBox.height() + PAGE_GAP);
 
 		if (foo > clientRect.bottom)
 			return;
@@ -459,7 +459,7 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 		HBRUSH black = (HBRUSH)::GetStockObject(BLACK_BRUSH);
 
-		y += height;
+		y += (int)height;
 
 		RECT fail = { 0, y, clientRect.right, y + PAGE_GAP };
 		FillRect( dc, &fail, (HBRUSH)(COLOR_APPWORKSPACE + 1) );
