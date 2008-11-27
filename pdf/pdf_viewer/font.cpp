@@ -11,11 +11,25 @@ extern Document * doc;
 
 static bool isInited;
 
+struct
+	{
+		BITMAPINFOHEADER h;
+		RGBQUAD grayLevels[256];
+	} bmi = 
+	{
+		{ sizeof(BITMAPINFOHEADER), 0, 1, 1, 8, BI_RGB, 0, 0, 0, 0,0 }, { 0 }
+	};
+
 void InitFontSystem( void )
 {
 	if (isInited) return;
 	FT_Init_FreeType( &library );
 	isInited = true;
+
+	// build this really screwy graylevels table. this is also incorrect, as
+	// lum != avg(r,g,b)
+	for( int i = 0; i < 256; i++ )
+		bmi.grayLevels[i].rgbBlue = bmi.grayLevels[i].rgbGreen = bmi.grayLevels[i].rgbRed = (255-i);
 }
 
 int y = 30;
@@ -36,8 +50,6 @@ void InstallEmbeddedFont( PDictionary fontDescriptor )
 		return;	// we're done here
 
 	String subtype = ff3->dict->Get<Name>("Subtype", doc->xrefTable)->str;
-	//if (subtype == String("Type1C"))
-	//	MessageBoxA( 0, "Type1C font", "fail", 0 );
 
 	size_t streamSize = 0;
 	char const * data = ff3->GetStreamBytes( doc->xrefTable, &streamSize );
@@ -53,33 +65,14 @@ void InstallEmbeddedFont( PDictionary fontDescriptor )
 
 static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
 {
-	//x -= slot->bitmap_left;
-	//y -= slot->bitmap_top;
-	/*for( int v = 0; v < slot->bitmap.rows; v++ )
-		for( int u = 0; u < slot->bitmap.width; u++ )
-		{
-			unsigned char val = 255 - slot->bitmap.buffer[ u + v * slot->bitmap.width ];
-			SetPixel( intoDC, x+u - slot->bitmap_left, y+v - slot->bitmap_top + 200, RGB(val,val,val) );
-		}*/
-		
-	struct
-	{
-		BITMAPINFOHEADER h;
-		RGBQUAD grayLevels[256];
-	} bmi = 
-	{
-		{ sizeof(BITMAPINFOHEADER), slot->bitmap.width, 1/*-slot->bitmap.rows*/, 1, 8, BI_RGB, 0, 0, 0, 0,0 }, { 0 }
-	};
-
-	// build this really screwy graylevels table. this is also incorrect 
-	// lum != avg(r,g,b)
-	for( int i = 0; i < 256; i++ )
-		bmi.grayLevels[i].rgbBlue = bmi.grayLevels[i].rgbGreen = bmi.grayLevels[i].rgbRed = (255-i);
+	bmi.h.biWidth = slot->bitmap.width;
 	
-	// what a hack (not sure why GDI insists on getting the stride wrong here, but it does.)
+	// what a hack: if we try to copy the entire image, GDI insists on screwing up the stride. why?
+	// stared at the docs for a while, but until this is a real perf problem, i don't care.
 	for( int v = 0; v < slot->bitmap.rows; v++ )
-		StretchDIBits( intoDC, x - slot->bitmap_left, y - slot->bitmap_top + v, slot->bitmap.width, 1,//slot->bitmap.rows,
-			0, 0, slot->bitmap.width, 1/*slot->bitmap.rows*/, slot->bitmap.buffer + v * slot->bitmap.width, (BITMAPINFO const *) &bmi, DIB_RGB_COLORS, SRCCOPY ); 
+		StretchDIBits( intoDC, x - slot->bitmap_left, y - slot->bitmap_top + v, slot->bitmap.width, 1,
+			0, 0, slot->bitmap.width, 1, slot->bitmap.buffer + v * slot->bitmap.width, 
+			(BITMAPINFO const *) &bmi, DIB_RGB_COLORS, SRCCOPY ); 
 }
 
 void RenderSomeFail( HDC intoDC, char const * content )

@@ -109,8 +109,8 @@ static void BindFont( PDictionary page, TextState& t )
 	String baseFont = font->Get<Name>( "BaseFont", doc->xrefTable )->str;
 	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
 
-	InstallEmbeddedFont( fontDescriptor );
-	RenderSomeFail( cacheDC, "PDF Reference" );
+	//InstallEmbeddedFont( fontDescriptor );
+	//RenderSomeFail( cacheDC, "PDF Reference" );
 
 	//DebugBreak();
 
@@ -126,7 +126,7 @@ static void BindFont( PDictionary page, TextState& t )
 extern HWND appHwnd;
 
 // returns number of ops
-static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t )
+static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t, size_t& numBinds )
 {
 	size_t length;
 	char const * pageContent = content->GetStreamBytes( doc->xrefTable, &length );
@@ -189,6 +189,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			t.fontSize = ToNumber(args[1]);
 
 			BindFont( page, t );
+			++numBinds;
 		}
 
 		else if (op == String("BT"))
@@ -197,6 +198,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			t.m = t.lm = Matrix();
 
 			BindFont( page, t );
+			++numBinds;
 		}
 
 		else if (op == String("Tm"))
@@ -213,6 +215,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			t.lm = t.m;
 
 			BindFont( page, t );
+			++numBinds;
 		}
 
 		else if (op == String("T*"))
@@ -280,7 +283,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 				{
 					// todo: non-horizontal writing modes
 					double k = ToNumber( *it );
-					t.m.v[4] -= /*t.lm.v[0] * */k / 1000;
+					t.m.v[4] -= k / 1000;
 				}
 			}
 		}
@@ -296,8 +299,9 @@ static void PaintPage( int width, int height, PDictionary page )
 {
 	::Rectangle( cacheDC, 0, 0, width, height );
 	size_t numOperations = 0;
+	size_t numBinds = 0;
 
-	FontNewPage();
+	FontNewPage();	// blatant hack
 
 	TextState t;
 
@@ -305,7 +309,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (content)
-		numOperations += PaintPageContent( width, height, page, content, t );
+		numOperations += PaintPageContent( width, height, page, content, t, numBinds );
 
 	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
 	if (array)
@@ -315,7 +319,7 @@ static void PaintPage( int width, int height, PDictionary page )
 		{
 			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
 			if (stream)
-				numOperations += PaintPageContent( width, height, page, stream, t );
+				numOperations += PaintPageContent( width, height, page, stream, t, numBinds );
 		}
 	}
 
@@ -334,7 +338,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
 
 	char fail[128];
-	sprintf( fail, "len: %u ops: %u t: %u ms", 0u, numOperations, time );
+	sprintf( fail, "len: %u ops: %u t: %u ms binds: %u", 0u, numOperations, time, numBinds );
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
 }
 
