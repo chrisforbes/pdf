@@ -1,9 +1,10 @@
 #include "pch.h"
+#include "textstate.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#pragma comment( lib, "freetype.lib" );
+#pragma comment( lib, "freetype.lib" )
 
 static FT_Library library;
 static FT_Face face = 0;
@@ -26,24 +27,32 @@ void InitFontSystem( void )
 	FT_Init_FreeType( &library );
 	isInited = true;
 
-	// build this really screwy graylevels table. this is also incorrect, as
-	// lum != avg(r,g,b)
+	// build this really screwy graylevels table. 
+	// this is also incorrect, as lum != avg(r,g,b)
 	for( int i = 0; i < 256; i++ )
 		bmi.grayLevels[i].rgbBlue = bmi.grayLevels[i].rgbGreen = bmi.grayLevels[i].rgbRed = (255-i);
 }
 
-int y = 30;
+static PDictionary lastFontDescriptor;
 
-void FontNewPage() { y = 30; }
-
-void InstallEmbeddedFont( PDictionary fontDescriptor )
+void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds )
 {
 	InitFontSystem();
+
+	if (lastFontDescriptor == fontDescriptor)
+	{
+		++nopBinds;
+		return;
+	}
+
+	/* todo: cache multiple faces, be vaguely smart, etc */
 	if (face)
 	{
 		FT_Done_Face( face );
 		face = 0;
 	}
+
+	lastFontDescriptor = fontDescriptor;
 
 	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
 	if (!ff3)
@@ -75,29 +84,32 @@ static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
 			(BITMAPINFO const *) &bmi, DIB_RGB_COLORS, SRCCOPY ); 
 }
 
-void RenderSomeFail( HDC intoDC, char const * content )
+void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height )
 {
 	assert( library && face && "This stuff needs to be initialized!" );
 
-	const int height = 48 * 64;	// 48pt
-	
-	int error = FT_Set_Char_Size( face, 0, height, 72, 72 );
+	int error = FT_Set_Char_Size( face, 0, (int)(64 * t.EffectiveFontHeight()), 72, 72 );
 
 	FT_GlyphSlot slot = face->glyph;
-	int x = 200;//, y = 200;
 
 	while( *content )
 	{
 		error = FT_Load_Char( face, *content, FT_LOAD_RENDER );
-		++content;
 
-		if (error) continue;
+		if (!error)
+		{
+			assert( t.h == 100 );
 
 		// draw to target
-		DrawChar( intoDC, slot, x, y );
+		DrawChar( intoDC, slot, t.m.v[4], height - t.m.v[5] - t.rise );
 
-		x += slot->advance.x >> 6;	// what a hack, subpixel failure, etc
+		t.m.v[4] += (slot->advance.x / 64.0);	// what a hack, subpixel failure, etc
+
+		t.m.v[4] += t.c * t.HorizontalScale();
+		if (*content == ' ')
+			t.m.v[4] += t.w * t.HorizontalScale();	
+		}
+
+		++content;
 	}
-
-	y += 50;
 }

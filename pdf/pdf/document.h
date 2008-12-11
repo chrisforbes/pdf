@@ -30,6 +30,7 @@ public:
 	size_t GetPageIndex( PDictionary page );
 	PDictionary GetNextPage( PDictionary page );
 	PDictionary GetPrevPage( PDictionary page );
+	size_t GetPageCount();
 };
 
 double ToNumber( PObject obj );	// needs a home!

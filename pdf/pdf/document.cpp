@@ -58,3 +58,9 @@ PDictionary Document::GetPrevPage(PDictionary page)
 {
 	return GetPage( GetPageIndex( page ) - 1 );
 }
+
+size_t Document::GetPageCount()
+{
+	PNumber count = pageRoot->Get<Number>( "Count", xrefTable );
+	return count->num;
+}

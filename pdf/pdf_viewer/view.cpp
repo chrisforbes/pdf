@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "../pdf/parse.h"
 #include "resource.h"
+#include "textstate.h"
 
 HDC cacheDC = NULL;
 HWND viewHwnd;
@@ -18,41 +19,14 @@ HCURSOR openHand, closedHand, current;
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 void SetCurrentPage( PDictionary page );	// declared later, this file
 
-struct Matrix
-{
-	double v[6];
-
-	Matrix()
-	{
-		v[0] = 1; v[1] = 0; v[2] = 0; v[3] = 0; v[4] = 1; v[5] = 0;
-	}
-};
-
-struct TextState
-{
-	double c, w, h, l, rise;
-	int mode;
-	double fontSize;
-	char fontName[128];	// better not be bigger than this
-	size_t fontNameLen;
-
-	Matrix m, lm;
-
-	TextState()
-		: c(0), w(0), h(100), l(0), rise(0), mode(0), fontSize(0), m(), lm(), fontNameLen(0)
-	{
-	}
-
-	double EffectiveFontHeight() const { return fontSize * lm.v[3]; }
-	double EffectiveFontWidth() const { return fontSize * lm.v[0]; }
-};
+// font.cpp
+extern void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds );
+extern void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height );
 
 static void DrawString( String * str, int width, int height, TextState& t )
 {
-	if (!str)
-		return;
+	if (!str) return;
 
-	SIZE size;
 	char sz[4096];
 
 	assert( str->Length() < 4096 && "too damn long" );
@@ -60,10 +34,7 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	size_t unescapedLen = UnescapeString( sz, str->start, str->end );
 	sz[unescapedLen] = 0;
 
-	GetTextExtentPoint32A( cacheDC, sz, unescapedLen, &size );
-
-	TextOutA( cacheDC, (int)t.m.v[4], height - (int)t.m.v[5], sz, unescapedLen );
-	t.m.v[4] += size.cx;
+	RenderSomeFail( cacheDC, sz, t, height );
 }
 
 static PDictionary GetResources( PDictionary page )
@@ -95,11 +66,7 @@ static PDictionary GetFont( PDictionary page, TextState& t )
 	return font;
 }
 
-extern void InstallEmbeddedFont( PDictionary fontDescriptor );
-extern void RenderSomeFail( HDC intoDC, char const * content );
-extern void FontNewPage();
-
-static void BindFont( PDictionary page, TextState& t )
+static void BindFont( PDictionary page, TextState& t, int& nopBinds )
 {
 	PDictionary font = GetFont( page, t );
 	if (!font)
@@ -109,24 +76,13 @@ static void BindFont( PDictionary page, TextState& t )
 	String baseFont = font->Get<Name>( "BaseFont", doc->xrefTable )->str;
 	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
 
-	//InstallEmbeddedFont( fontDescriptor );
-	//RenderSomeFail( cacheDC, "PDF Reference" );
-
-	//DebugBreak();
-
-	HFONT f = CreateFont( (int)t.EffectiveFontHeight(), 0, 0, 0, FW_DONTCARE, 0, 0, 0, DEFAULT_CHARSET,
-		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 0, L"Segoe UI" );  
-
-	assert( f );
-
-	HFONT oldFont = (HFONT)SelectObject( cacheDC, f );
-	DeleteObject( oldFont );	// check: better be benign on things returned by GetStockObject() etc
+	InstallEmbeddedFont( fontDescriptor, nopBinds );
 }
 
 extern HWND appHwnd;
 
 // returns number of ops
-static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t, size_t& numBinds )
+static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t, size_t& numBinds, int& nopBinds )
 {
 	size_t length;
 	char const * pageContent = content->GetStreamBytes( doc->xrefTable, &length );
@@ -188,7 +144,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			t.fontName[ t.fontNameLen ] = 0;
 			t.fontSize = ToNumber(args[1]);
 
-			BindFont( page, t );
+			BindFont( page, t, nopBinds );
 			++numBinds;
 		}
 
@@ -197,7 +153,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			assert( args.size() == 0 );
 			t.m = t.lm = Matrix();
 
-			BindFont( page, t );
+			BindFont( page, t, nopBinds );
 			++numBinds;
 		}
 
@@ -214,7 +170,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 
 			t.lm = t.m;
 
-			BindFont( page, t );
+			BindFont( page, t, nopBinds );
 			++numBinds;
 		}
 
@@ -300,8 +256,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	::Rectangle( cacheDC, 0, 0, width, height );
 	size_t numOperations = 0;
 	size_t numBinds = 0;
-
-	FontNewPage();	// blatant hack
+	int nopBinds = 0;
 
 	TextState t;
 
@@ -309,7 +264,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (content)
-		numOperations += PaintPageContent( width, height, page, content, t, numBinds );
+		numOperations += PaintPageContent( width, height, page, content, t, numBinds, nopBinds );
 
 	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
 	if (array)
@@ -319,7 +274,7 @@ static void PaintPage( int width, int height, PDictionary page )
 		{
 			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
 			if (stream)
-				numOperations += PaintPageContent( width, height, page, stream, t, numBinds );
+				numOperations += PaintPageContent( width, height, page, stream, t, numBinds, nopBinds );
 		}
 	}
 
@@ -338,7 +293,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
 
 	char fail[128];
-	sprintf( fail, "len: %u ops: %u t: %u ms binds: %u", 0u, numOperations, time, numBinds );
+	sprintf( fail, "len: %u ops: %u t: %u ms binds: %d/%u", 0u, numOperations, time, numBinds - nopBinds, numBinds);
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
 }
 
@@ -530,6 +485,34 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 static const int WHEEL_SCROLL_PIXELS = 40;
 
+wchar_t gotoPage[10];
+INT_PTR __stdcall GotoPageDialogProc( HWND diagHwnd, UINT msg, WPARAM wp, LPARAM lp )
+{
+	switch(msg)
+	{
+	case WM_INITDIALOG:
+		{
+			wchar_t range[10];
+			wsprintf(range, L"1-%d", doc->GetPageCount());
+			SetDlgItemText(diagHwnd, IDC_VALIDPAGES, range);
+			SetDlgItemText(diagHwnd, IDC_PAGENUMBER, L"");
+		}
+		break;
+	case WM_COMMAND:
+		switch (LOWORD(wp))
+		{
+		case IDOK:
+			if (!GetDlgItemText(diagHwnd, IDC_PAGENUMBER, gotoPage, 10))
+				*gotoPage = 0;
+		case IDCANCEL:
+			EndDialog(diagHwnd, wp);
+			break;
+		}
+		break;
+	}
+	return FALSE;
+}
+
 LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 {
 	switch( msg )
@@ -569,25 +552,56 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 	case WM_KEYDOWN:
 		{
-			if (wp == VK_F3)
+			switch(wp)
 			{
-				SetWindowText( appHwnd, L"PDF Viewer - Running Test - Press <ESC> to cancel" );
-				PDictionary page = doc->GetPage(0);
-				while( page )
+			case VK_F3:
 				{
-					SetCurrentPage( page );
-					UpdateWindow( hwnd );
-
-					page = doc->GetNextPage( page );
-
-					if (GetAsyncKeyState( VK_ESCAPE ) != 0)
+					SetWindowText( appHwnd, L"PDF Viewer - Running Test - Press <ESC> to cancel" );
+					PDictionary page = doc->GetPage(0);
+					while( page )
 					{
-						SetWindowText( appHwnd, L"PDF Viewer - Test Canceled" );
-						return 0;
+						SetCurrentPage( page );
+						UpdateWindow( hwnd );
+
+						page = doc->GetNextPage( page );
+
+						if (GetAsyncKeyState( VK_ESCAPE ) != 0)
+						{
+							SetWindowText( appHwnd, L"PDF Viewer - Test Canceled" );
+							return 0;
+						}
+					}
+
+					SetWindowText( appHwnd, L"PDF Viewer - Test complete" );
+				}
+				break;
+			case VK_F4:
+				{
+					HINSTANCE inst = GetModuleHandle(0);
+					if (DialogBox(inst, MAKEINTRESOURCE(IDD_GOTOPAGE), hwnd, GotoPageDialogProc)
+						== IDOK)
+					{
+						if (*gotoPage != 0)
+							SetCurrentPage(doc->GetPage(_wtoi(gotoPage) - 1));
 					}
 				}
-
-				SetWindowText( appHwnd, L"PDF Viewer - Test complete" );
+				break;
+			case VK_UP:
+				offsety += WHEEL_SCROLL_PIXELS;
+				::InvalidateRect( hwnd, 0, true );
+				break;
+			case VK_DOWN:
+				offsety -= WHEEL_SCROLL_PIXELS;
+				::InvalidateRect( hwnd, 0, true );
+				break;
+			case VK_PRIOR:
+				offsety += WHEEL_SCROLL_PIXELS * 10;
+				::InvalidateRect( hwnd, 0, true );
+				break;
+			case VK_NEXT:
+				offsety -= WHEEL_SCROLL_PIXELS * 10;
+				::InvalidateRect( hwnd, 0, true );
+				break;
 			}
 
 			return 0;

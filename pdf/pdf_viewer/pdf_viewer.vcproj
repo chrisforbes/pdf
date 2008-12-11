@@ -224,6 +224,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\textstate.h"
+			>
+		</File>
+		<File
 			RelativePath=".\view.cpp"
 			>
 		</File>

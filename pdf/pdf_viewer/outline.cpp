@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "..\pdf\parse.h"
 
 HWND outlineHwnd;
 
@@ -9,9 +10,10 @@ HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTRE
 {
 	USES_CONVERSION;
 	char temp[512];
-	memcpy( temp, start, len );
-	temp[len] = 0;
-
+	size_t escaped_len;
+	escaped_len = UnescapeString( temp, start, start + len );
+	temp[escaped_len] = 0;
+	
 	TV_INSERTSTRUCT is;
 	::memset( &is, 0, sizeof( TV_INSERTSTRUCT ) );
 	is.hParent = parent;
@@ -19,7 +21,7 @@ HTREEITEM AddOutlineItem( char const * start, size_t len, bool hasChildren, HTRE
 	is.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 	is.item.cChildren = hasChildren ? 1 : 0;
 	is.item.pszText = A2W( temp );
-	is.item.cchTextMax = len;
+	is.item.cchTextMax = escaped_len;
 	is.item.lParam = (LPARAM)value;
 
 	return TreeView_InsertItem( outlineHwnd, &is );
