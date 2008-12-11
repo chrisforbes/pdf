@@ -79,7 +79,7 @@ static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
 	// what a hack: if we try to copy the entire image, GDI insists on screwing up the stride. why?
 	// stared at the docs for a while, but until this is a real perf problem, i don't care.
 	for( int v = 0; v < slot->bitmap.rows; v++ )
-		StretchDIBits( intoDC, x - slot->bitmap_left, y - slot->bitmap_top + v, slot->bitmap.width, 1,
+		StretchDIBits( intoDC, x + slot->bitmap_left, y - slot->bitmap_top + v, slot->bitmap.width, 1,
 			0, 0, slot->bitmap.width, 1, slot->bitmap.buffer + v * slot->bitmap.width, 
 			(BITMAPINFO const *) &bmi, DIB_RGB_COLORS, SRCCOPY ); 
 }
@@ -88,7 +88,7 @@ void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height 
 {
 	assert( library && face && "This stuff needs to be initialized!" );
 
-	int error = FT_Set_Char_Size( face, 0, (int)(64 * t.EffectiveFontHeight()), 72, 72 );
+	int error = FT_Set_Char_Size( face, (int)(64 * t.EffectiveFontWidth()), (int)(64 * t.EffectiveFontHeight()), 72, 72 );
 
 	FT_GlyphSlot slot = face->glyph;
 
@@ -98,16 +98,15 @@ void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height 
 
 		if (!error)
 		{
-			assert( t.h == 100 );
 
 		// draw to target
 		DrawChar( intoDC, slot, t.m.v[4], height - t.m.v[5] - t.rise );
 
 		t.m.v[4] += (slot->advance.x / 64.0);	// what a hack, subpixel failure, etc
 
-		t.m.v[4] += t.c * t.HorizontalScale();
+		t.m.v[4] += t.c * t.EffectiveFontHeight();// * t.HorizontalScale();
 		if (*content == ' ')
-			t.m.v[4] += t.w * t.HorizontalScale();	
+			t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
 		}
 
 		++content;
