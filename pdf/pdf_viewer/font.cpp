@@ -35,9 +35,41 @@ void InitFontSystem( void )
 
 static PDictionary lastFontDescriptor;
 
+void BindCompactFont( PDictionary fontDescriptor, PStream ff3 )
+{
+	//String subtype = ff3->dict->Get<Name>("Subtype", doc->xrefTable)->str;
+	size_t streamSize = 0;
+	char const * data = ff3->GetStreamBytes( doc->xrefTable, &streamSize );
+
+	int error = FT_New_Memory_Face( library, (FT_Byte const *)data, streamSize, 0, &face );
+	if ( error )
+	{
+		char sz[256];
+		sprintf( sz, "Freetype2 error loading from ff3: %x", error );
+		MessageBoxA( 0, sz, "Fail", 0 );
+	}
+}
+
+void BindTrueTypeFont( PDictionary fontDescriptor, PStream ff2 )
+{
+	size_t streamSize = 0;
+	char const * data = ff2->GetStreamBytes( doc->xrefTable, &streamSize );
+
+	int error = FT_New_Memory_Face( library, (FT_Byte const *)data, streamSize, 0, &face );
+	if ( error )
+	{
+		char sz[64];
+		sprintf( sz, "Freetype2 error loading from ff2: %x", error );
+		MessageBoxA( 0, sz, "Fail", 0 );
+	}
+}
+
 void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds )
 {
 	InitFontSystem();
+
+	if (!fontDescriptor)
+		MessageBox( 0, L"WTF ARE YOU DOING, THERE IS NO SPOON/FONT", L"Epic Fail", 0 );
 
 	if (lastFontDescriptor == fontDescriptor)
 	{
@@ -54,22 +86,20 @@ void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds )
 
 	lastFontDescriptor = fontDescriptor;
 
-	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
-	if (!ff3)
-		return;	// we're done here
-
-	String subtype = ff3->dict->Get<Name>("Subtype", doc->xrefTable)->str;
-
-	size_t streamSize = 0;
-	char const * data = ff3->GetStreamBytes( doc->xrefTable, &streamSize );
-
-	int error = FT_New_Memory_Face( library, (FT_Byte const *)data, streamSize, 0, &face );
-	if ( error )
+	PStream ff1 = fontDescriptor->Get<Stream>( "FontFile", doc->xrefTable );
+	if (ff1)
 	{
-		char sz[64];
-		sprintf( sz, "Freetype2 error: %x", error );
-		MessageBoxA( 0, sz, "Fail", 0 );
+		MessageBox( 0, L"FontFile", L"noti", 0 );
+		return;
 	}
+
+	PStream ff2 = fontDescriptor->Get<Stream>( "FontFile2", doc->xrefTable );
+	if (ff2)
+		return BindTrueTypeFont( fontDescriptor, ff2 );
+
+	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
+	if (ff3)
+		return BindCompactFont( fontDescriptor, ff3 );
 }
 
 static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
