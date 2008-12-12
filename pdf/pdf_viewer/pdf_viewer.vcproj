@@ -195,6 +195,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\GlyphCache.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\glyphCache.h"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
 			>
 		</File>

@@ -62,11 +62,9 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 extern PDocument LoadFile( HWND appHwnd, wchar_t const * filename );
 extern void DumpPage( Dictionary * start, const XrefTable & objmap );
-extern void InitGrayLevels();
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 {
-	InitGrayLevels();
 	DWORD t = GetTickCount();
 
 	::InitCommonControls();
