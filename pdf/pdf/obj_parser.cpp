@@ -53,7 +53,7 @@ PObject Parse( const char*& p, char const * end )
 
 PDictionary ParseDict( const char*& p, char const * end )
 {
-	Dictionary* dict = new Dictionary();
+	PDictionary dict( new Dictionary() );
 	const char* tokenStart = 0;
 	for(;;)
 	{
@@ -67,7 +67,7 @@ PDictionary ParseDict( const char*& p, char const * end )
 				break;
 			}
 		case token_e::DictEnd:
-			return PDictionary( dict );
+			return dict;
 		default:
 			return PDictionary();
 		}
@@ -109,6 +109,9 @@ String ParseContent( char const *& p, char const * end, std::vector<PObject>& in
 
 		intoVector.push_back( Parse( p, end ) );
 	}
+
+	// i have no idea what this funtion should have returned here, but it used to fall through
+	assert( !"WTF" );
 }
 
 size_t UnescapeString( char * dest, char const * src, char const * srcend )
@@ -164,4 +167,68 @@ size_t UnescapeString( char * dest, char const * src, char const * srcend )
 	}
 
 	return dest - destStart;
+}
+
+PObject ParseDirect( const char* p, const XrefTable& objmap )
+{
+	PObject o = Parse( p, 0 );
+
+	char const * tokenStart;
+	token t = Token( p, tokenStart, 0 );
+	if ( t == token_e::KeywordEndObj )
+		return o;
+	else if ( t == token_e::Stream && o->Type() == ObjectType::Dictionary )
+	{
+		if( *p == '\r' )
+			++p;
+		if( *p != '\n' )
+			DebugBreak();
+		++p;
+
+		PDictionary dict = boost::shared_static_cast<Dictionary>( o );
+		PNumber length = dict->Get<Number>( "Length", objmap );
+
+		const char* q = p;
+		p += length->num;
+		PStream ret( new Stream( dict, q, p ) );
+
+		if( token_e::EndStream != Token( p, tokenStart, 0 ) )
+			DebugBreak();
+		if( token_e::KeywordEndObj != Token( p, tokenStart, 0 ) )
+			DebugBreak();
+
+		if( *p == '\r' )
+			++p;
+		if( *p == '\n' )
+			++p;
+
+		return ret;
+	}
+	else
+	{
+		DebugBreak();
+		return PObject();
+	}
+}
+
+PObject ParseIndirect( const char* p, Indirect* i, const XrefTable& objmap )
+{
+	PObject objNum = Parse( p, 0 );
+	PObject objGen = Parse( p, 0 );
+
+	if (objNum->Type() != ObjectType::Number || objGen->Type() != ObjectType::Number)
+		DebugBreak();
+
+	int indNum = ((Number *)objNum.get())->num;
+	int indGen = ((Number *)objGen.get())->num;
+
+	if (i->objectNum != indNum || i->generation != indGen)
+		DebugBreak();
+
+	char const * tokenStart = p;
+	if (token_e::KeywordObj != Token( p, tokenStart, 0 ))
+		DebugBreak();
+
+	return ParseDirect( p, objmap );
+
 }

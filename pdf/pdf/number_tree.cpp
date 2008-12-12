@@ -20,8 +20,8 @@ void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree )
 		for( std::vector<PObject>::const_iterator it = kids->elements.begin();
 			it != kids->elements.end(); it++ )
 		{
-			PObject child = Object::ResolveIndirect_(*it, doc->xrefTable);
-			assert(child->Type() == ObjectType::Dictionary);
-			WalkNumberTree( doc, (Dictionary *)child.get(), intoTree );
+			PDictionary child = Object::ResolveIndirect_<Dictionary>(*it, doc->xrefTable);
+			assert( child );
+			WalkNumberTree( doc, child.get(), intoTree );
 		}
 }

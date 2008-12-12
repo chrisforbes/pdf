@@ -191,6 +191,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\font_cache.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
 			>
 		</File>

@@ -89,7 +89,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 	if (dest->Type() == ObjectType::String)
 	{
 		String * s = (String *)dest.get();
-		dest = Object::ResolveIndirect_( NameTreeGetValue( doc, *s ), doc->xrefTable );
+		dest = Object::ResolveIndirect_<Object>( NameTreeGetValue( doc, *s ), doc->xrefTable );
 	}
 
 	PArray destArray;
@@ -109,8 +109,7 @@ void NavigateToPage( HWND appHwnd, Document * doc, NMTREEVIEW * info )
 	{
 		if (destArray->elements.empty()) return;
 		
-		PDictionary page = boost::shared_static_cast<Dictionary>(
-			Object::ResolveIndirect_(destArray->elements[0], doc->xrefTable));
+		PDictionary page = Object::ResolveIndirect_<Dictionary>( destArray->elements[0], doc->xrefTable );
 
 		SetCurrentPage( page );
 	}

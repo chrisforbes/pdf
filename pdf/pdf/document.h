@@ -16,7 +16,7 @@ public:
 //	NumberTree pageLabels;
 
 	Document( MappedFile * g )
-		: f(g)
+		: f(g), xrefTable( *g )
 	{
 	}
 
@@ -32,5 +32,6 @@ public:
 	PDictionary GetPrevPage( PDictionary page );
 	size_t GetPageCount();
 };
+typedef boost::shared_ptr< Document > PDocument;
 
 double ToNumber( PObject obj );	// needs a home!

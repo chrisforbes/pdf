@@ -7,7 +7,7 @@ HDC cacheDC = NULL;
 HWND viewHwnd;
 wchar_t const * viewWndClass = L"pdf-viewwnd";
 PDictionary currentPage;
-extern Document * doc;
+extern PDocument doc;
 int offsety = 0;
 int offsety2 = 0;	// hax, fix names
 int haxy = 0;
@@ -20,7 +20,6 @@ extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 void SetCurrentPage( PDictionary page );	// declared later, this file
 
 // font.cpp
-extern void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds );
 extern void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height );
 
 static void DrawString( String * str, int width, int height, TextState& t )
@@ -37,48 +36,7 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	RenderSomeFail( cacheDC, sz, t, height );
 }
 
-static PDictionary GetResources( PDictionary page )
-{
-	if (!page)
-		return PDictionary();
-
-	PDictionary resources = page->Get<Dictionary>( "Resources", doc->xrefTable );
-	
-	return resources 
-		? resources
-		: GetResources( page->Get<Dictionary>( "Parent", doc->xrefTable ) );
-}
-
-static PDictionary GetFont( PDictionary page, TextState& t )
-{
-	if (!t.fontNameLen)
-		return PDictionary();
-
-	PDictionary resources = GetResources( page );
-	if (!resources)
-		return PDictionary();
-
-	PDictionary fonts = resources->Get<Dictionary>( "Font", doc->xrefTable );
-	if (!fonts)
-		return PDictionary();
-
-	PDictionary font = fonts->Get<Dictionary>( t.fontName, doc->xrefTable );
-	return font;
-}
-
-static void BindFont( PDictionary page, TextState& t, int& nopBinds )
-{
-	PDictionary font = GetFont( page, t );
-	if (!font)
-		return;
-
-	String subtype = font->Get<Name>( "Subtype", doc->xrefTable )->str;
-	String baseFont = font->Get<Name>( "BaseFont", doc->xrefTable )->str;
-	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
-
-	InstallEmbeddedFont( fontDescriptor, nopBinds );
-}
-
+extern void BindFont( PDictionary page, TextState& t, int& nopBinds );
 extern HWND appHwnd;
 
 // returns number of ops
@@ -245,6 +203,8 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 		}
 
 		++numOperations;
+		while( *p == '\r' || *p == '\n' )
+			++p;
 	}
 
 	SetBkMode( cacheDC, oldMode );
@@ -272,7 +232,7 @@ static void PaintPage( int width, int height, PDictionary page )
 		for( std::vector<PObject>::iterator it = array->elements.begin();
 			it != array->elements.end(); it++ )
 		{
-			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
+			PStream stream = Object::ResolveIndirect_<Stream>( *it, doc->xrefTable );
 			if (stream)
 				numOperations += PaintPageContent( width, height, page, stream, t, numBinds, nopBinds );
 		}
@@ -315,7 +275,7 @@ static void EvictCacheItem( std::pair<size_t, HBITMAP> item )
 		for( std::vector<PObject>::iterator it = array->elements.begin();
 			it != array->elements.end(); it++ )
 		{
-			PStream stream = boost::shared_static_cast<Stream>( Object::ResolveIndirect_( *it, doc->xrefTable ) );
+			PStream stream = Object::ResolveIndirect_<Stream>( *it, doc->xrefTable );
 			if (stream)
 				stream->EvictCache();
 		}
@@ -365,7 +325,7 @@ void ClampToStartOfDocument()
 			break;
 
 		currentPage = prevPage;
-		DoubleRect mediaBox = GetPageMediaBox( doc, prevPage.get() );
+		DoubleRect mediaBox = GetPageMediaBox( doc.get(), prevPage.get() );
 
 		offsety -= (int)mediaBox.height() + PAGE_GAP;
 		offsety2 -= (int)mediaBox.height() + PAGE_GAP;
@@ -380,7 +340,7 @@ void ClampToEndOfDocument()
 {
 	while( true )
 	{
-		DoubleRect mediaBox = GetPageMediaBox( doc, currentPage.get() );
+		DoubleRect mediaBox = GetPageMediaBox( doc.get(), currentPage.get() );
 		if( offsety >= -mediaBox.height() )
 			break;
 
@@ -403,7 +363,7 @@ void ClampToEndOfDocument()
 
 	while( true )
 	{
-		DoubleRect mediaBox = GetPageMediaBox( doc, failPage.get() );
+		DoubleRect mediaBox = GetPageMediaBox( doc.get(), failPage.get() );
 		PDictionary nextPage = doc->GetNextPage( failPage );
 
 		if (!nextPage)
@@ -446,7 +406,7 @@ void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 	while( y < clientRect.bottom )
 	{
-		DoubleRect mediaBox = GetPageMediaBox( doc, page.get() );
+		DoubleRect mediaBox = GetPageMediaBox( doc.get(), page.get() );
 
 		double width = mediaBox.width();
 		int offset = (int)(clientRect.right - width) / 2;

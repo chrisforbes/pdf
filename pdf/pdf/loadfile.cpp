@@ -2,6 +2,9 @@
 #include "token.h"
 #include "parse.h"
 
+// hold references to the xrefstreams, so the parsed trailer dicts don't refer to free'd memory.
+static std::vector< PStream > xrefStreams;
+
 int GetPdfVersion( MappedFile const & f )
 {
 	if (!::memcmp( "%PDF-1.", f.F(), 7 ))
@@ -50,117 +53,6 @@ char const * GetPdfNextLine( MappedFile const & f, char const * p )
 	return p;
 }
 
-const char * ReadPdfXrefSubsection( const MappedFile& file, const char* p, XrefTable& m )
-{
-	assert( sizeof( Xref ) < 20 );
-	const char* q = GetPdfNextLine( file, p );
-
-	char* tokEnd = const_cast<char*>( q );
-	size_t first = strtoul( p, &tokEnd, 10 );
-	if( !tokEnd || tokEnd == p )
-		return 0;
-
-	p = tokEnd;
-	while( *p == ' ' )
-		++p;
-
-	tokEnd = const_cast<char*>( q );
-	size_t count = strtoul( p, &tokEnd, 10 );
-	if( !tokEnd || tokEnd == p )
-		return 0;
-
-	p = q;
-
-	m.addSection( first, count, p );
-
-	size_t end = first + count;
-
-	for( ; first < end ; first++ )
-	{
-		m.fillEntry( p, file );
-
-		p += 20;
-	}
-	return p;
-}
-
-char const * ReadPdfXrefSection( MappedFile const & f, char const * p, XrefTable& m )
-{
-	p = GetPdfNextLine(f,p);	// `xref` line
-
-	while( p && ::memcmp( p, "trailer", 7 ) != 0 )
-		p = ReadPdfXrefSubsection( f, p, m );
-
-	return p;
-}
-
-PObject InnerParseIndirectObject( Indirect * i, const XrefTable & objmap )
-{
-	const char* p = i->Resolve( objmap );
-
-	PObject objNum = Parse( p, 0 );
-	PObject objGen = Parse( p, 0 );
-
-	if (objNum->Type() != ObjectType::Number || objGen->Type() != ObjectType::Number)
-		DebugBreak();
-
-	int num = ((Number *)objNum.get())->num;
-	int gen = ((Number *)objGen.get())->num;
-
-	if (i->objectNum != num || i->generation != gen)
-		DebugBreak();
-
-	char const * tokenStart = p;
-	if (token_e::KeywordObj != Token( p, tokenStart, 0 ))
-		DebugBreak();
-
-	PObject o = Parse( p, 0 );
-
-	token t = Token( p, tokenStart, 0 );
-	if ( t == token_e::KeywordEndObj )
-		return o;
-	else if ( t == token_e::Stream && o->Type() == ObjectType::Dictionary )
-	{
-		if( *p == '\r' )
-			++p;
-		if( *p != '\n' )
-			DebugBreak();
-		++p;
-
-		PDictionary dict = boost::shared_static_cast<Dictionary>( o );
-		PNumber length = dict->Get<Number>( "Length", objmap );
-		return PStream( new Stream( dict, p, p+length->num ) );
-	}
-	else
-	{
-		DebugBreak();
-		return PObject();
-	}
-}
-
-PObject ParseIndirectObject( Indirect * i, const XrefTable & objmap )
-{
-	size_t objNum = (size_t)i->objectNum;
-
-	const Xref* xref = objmap.find( objNum );
-	if( xref )
-	{
-		if (!xref->cache)
-			xref->cache = InnerParseIndirectObject( i, objmap );
-
-		return xref->cache;
-	}
-	return PObject();
-}
-
-PObject Object::ResolveIndirect_( PObject p, const XrefTable & objmap )
-{
-	if (!p || p->Type() != ObjectType::Ref)
-		return p;
-
-	return ParseIndirectObject( (Indirect *)p.get(), objmap );
-}
-
 extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoTree );
 
 /*void LoadPageLabels( Document * doc )
@@ -174,23 +66,54 @@ extern void WalkNumberTree( Document * doc, Dictionary * node, NumberTree& intoT
 
 PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p );
 
-void WalkPreviousFileVersions( MappedFile const & f, XrefTable & t, PDictionary d )
+void WalkPreviousFileVersions( MappedFile const & f, XrefTable & objmap, PDictionary d )
 {
 	PObject prev = d->Get( "Prev" );
 	if (!prev || prev->Type() != ObjectType::Number)
 		return;
 
-	char const * p = f.F() + ((Number *)prev.get())->num;
-	p = ReadPdfXrefSection( f, p, t );
-	ReadPdfTrailerSection( f, t, p );
+	char const * xref = f.F() + ((Number *)prev.get())->num;
+	//p = objmap.ReadXrefSection( f, p );
+	ReadPdfTrailerSection( f, objmap, xref );
 }
 
-PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * p )
+PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, char const * xref )
 {
-	p = GetPdfNextLine( f, p );
-	PObject trailerDictP = Parse( p, 0 );
+	if (::memcmp(xref, "xref", 4 ) == 0 )
+	{
+		xref = objmap.ReadXrefSection( xref );
+		if( !xref )
+			// Bogus xref section
+			return PDictionary();
+	}
 
-	PDictionary trailerDict = boost::shared_static_cast<Dictionary>( trailerDictP );
+	const char * p = GetPdfNextLine( f, xref );
+
+	PObject trailerDictP = ParseDirect( p, objmap );
+
+	PDictionary trailerDict = boost::shared_dynamic_cast<Dictionary>( trailerDictP );
+	PStream xrefStream = boost::shared_dynamic_cast< Stream >( trailerDictP );
+
+	if( xrefStream )
+		trailerDict = xrefStream->dict;
+
+	assert( trailerDict && "Invalid Trailer Dictionary" );
+
+	PName type = trailerDict->Get<Name>( "Type", objmap );
+	if( type && type->str == String( "XRef" ) )
+	{
+		// xref stream
+		if( !xrefStream )
+		{
+			assert( !"bogus xref stream" );
+			return PDictionary();
+		}
+
+		xrefStreams.push_back( xrefStream );
+		size_t streamLength;
+		const char* streamContent = xrefStream->GetStreamBytes( XrefTable( f ), &streamLength );
+		objmap.ReadXrefStream( xrefStream, streamContent, streamLength );
+	}
 
 	WalkPreviousFileVersions( f, objmap, trailerDict );
 	return trailerDict;
@@ -225,27 +148,27 @@ PDictionary ReadTopLevelTrailer( Document * doc, MappedFile const & f, XrefTable
 #define MsgBox( msg )\
 	::MessageBox( appHwnd, msg, L"PDF Viewer", 0 )
 
-Document * LoadFile( HWND appHwnd, wchar_t const * filename )
+PDocument LoadFile( HWND appHwnd, wchar_t const * filename )
 {
 	MappedFile * f = new MappedFile( filename );
 	if (!f->IsValid())
 	{
 		MsgBox( L"Failed opening file" );
-		return 0;
+		return PDocument();
 	}
 
 	int version = GetPdfVersion( *f );
 	if (!version)
 	{
 		MsgBox( L"Not a PDF: bogus header" );
-		return 0;
+		return PDocument();
 	}
 
 	char const * eof = GetPdfEof( *f );
 	if (!eof)
 	{
 		MsgBox( L"Not a PDF: bogus EOF" );
-		return 0;
+		return PDocument();
 	}
 
 	char const * xrefOffsetS = GetPdfPrevLine( *f, eof );
@@ -254,7 +177,7 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 	if (::memcmp(startXref, "startxref", 9 ))
 	{
 		MsgBox( L"Bogus startxref" );
-		return 0;
+		return PDocument();
 	}
 
 	char * end = const_cast<char *>(eof);
@@ -262,26 +185,12 @@ Document * LoadFile( HWND appHwnd, wchar_t const * filename )
 	if (!end || end == xrefOffsetS)
 	{
 		MsgBox( L"Bogus xref offset" );
-		return 0;
+		return PDocument();
 	}
 
-	if (::memcmp(xref, "xref", 4 ))
-	{
-		MsgBox( L"Bogus xref" );
-		return 0;
-	}
+	PDocument doc( new Document( f ) );
 
-	Document * doc = new Document( f );
-
-	char const * trailer = ReadPdfXrefSection( *f, xref, doc->xrefTable );
-	if (!trailer)
-	{
-		MsgBox( L"Bogus xref section" );
-		delete doc;
-		return 0;
-	}
-
-	doc->outlineRoot = ReadTopLevelTrailer( doc, *f, doc->xrefTable, trailer );
+	doc->outlineRoot = ReadTopLevelTrailer( doc.get(), *f, doc->xrefTable, xref );
 
 	PDictionary nameDict = doc->documentCatalog->Get<Dictionary>( "Names", doc->xrefTable );
 	doc->nameTreeRoot = nameDict ? nameDict->Get<Dictionary>( "Dests", doc->xrefTable ) : PDictionary();

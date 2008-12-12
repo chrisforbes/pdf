@@ -4,7 +4,7 @@ static wchar_t const * wndClassName = L"pdf-appwnd";
 HWND appHwnd;
 extern HWND outlineHwnd;
 extern HWND viewHwnd;
-Document * doc = 0;
+PDocument doc;
 extern wchar_t const * viewWndClass;
 
 extern void RegisterViewClass();
@@ -42,13 +42,13 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			{
 				if (hdr->code == TVN_SELCHANGED)
 				{
-					::NavigateToPage( appHwnd, doc, (NMTREEVIEW *) hdr );
+					::NavigateToPage( appHwnd, doc.get(), (NMTREEVIEW *) hdr );
 					return 0;
 				}
 				
 				if (hdr->code = TVN_ITEMEXPANDED)
 				{
-					::ExpandNode( doc, (NMTREEVIEW *) hdr );
+					::ExpandNode( doc.get(), (NMTREEVIEW *) hdr );
 					return 0;
 				}
 			}
@@ -60,11 +60,13 @@ LRESULT __stdcall MainWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 	}
 }
 
-extern Document * LoadFile( HWND appHwnd, wchar_t const * filename );
+extern PDocument LoadFile( HWND appHwnd, wchar_t const * filename );
 extern void DumpPage( Dictionary * start, const XrefTable & objmap );
+extern void InitGrayLevels();
 
 int __stdcall WinMain( HINSTANCE inst, HINSTANCE, LPSTR, int showCmd )
 {
+	InitGrayLevels();
 	DWORD t = GetTickCount();
 
 	::InitCommonControls();

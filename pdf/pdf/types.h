@@ -46,7 +46,15 @@ public:
 	virtual ~Object() {}
 	virtual ObjectType::ObjectType Type() const = 0;
 
-	static PObject ResolveIndirect_( PObject p, const XrefTable & t );
+	template< typename T >
+	static boost::shared_ptr<T> ResolveIndirect_( PObject p, const XrefTable & t )
+	{
+		if (!p || p->Type() != ObjectType::Ref)
+			return boost::shared_dynamic_cast<T>( p );
+
+		PIndirect ind = boost::shared_dynamic_cast<Indirect>( p );
+		return t.get<T>( ind.get() );
+	}
 };
 
 #define IMPLEMENT_OBJECT_TYPE( t )\
@@ -151,6 +159,11 @@ public:
 	{
 	}
 
+	Number( int num )
+		: num( num )
+	{
+	}
+
 	IMPLEMENT_OBJECT_TYPE( Number );
 };
 
@@ -194,14 +207,13 @@ public:
 
 	PObject Get( char const * literalString, const XrefTable& objmap )
 	{
-		return Object::ResolveIndirect_( Get( literalString ), objmap );
+		return Object::ResolveIndirect_<Object>( Get( literalString ), objmap );
 	}
 
 	template< typename T >
 	boost::shared_ptr<T> Get( char const * literalString, const XrefTable& objmap )
 	{
-		// TODO: do this without the dynamic_cast
-		return boost::shared_dynamic_cast<T>( Get( literalString , objmap ) );
+		return Object::ResolveIndirect_<T>( Get( literalString ), objmap );
 	}
 
 	void Add( const Name& key, const PObject& value )
@@ -224,15 +236,6 @@ public:
 	Indirect( const Number& objectNum, const Number& generation )
 		: objectNum( objectNum.num ), generation( generation.num )
 	{
-	}
-
-	char const * Resolve( XrefTable const & t )
-	{
-		const Xref* xref = t.find( objectNum );
-		if( !xref || xref->generation != generation )
-			return 0;
-
-		return xref->ptr;
 	}
 
 	IMPLEMENT_OBJECT_TYPE( Ref );
@@ -278,7 +281,7 @@ public:
 
 		if( filter->Type() == ObjectType::Name )
 		{
-			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), start, end, &decodedLength );
+			decodedStart = ApplyFilter( *boost::shared_static_cast<Name>( filter ), dict->Get<Dictionary>( "DecodeParms", objmap ), start, end, &decodedLength, objmap );
 			decodedIsAllocated = true;
 			*length = decodedLength;
 		}
@@ -288,7 +291,7 @@ public:
 		return decodedStart;
 	}
 
-	const char* ApplyFilter( const Name& filterName, const char* inputStart, const char* inputEnd, size_t * length );
+	const char* ApplyFilter( const Name& filterName, PDictionary filterParms, const char* inputStart, const char* inputEnd, size_t * outputLength, XrefTable const & objmap );
 
 	void EvictCache()
 	{

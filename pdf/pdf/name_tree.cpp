@@ -25,7 +25,7 @@ PObject NameTreeGetValueInner( Document * doc, PDictionary node, String key )
 		std::vector<PObject>::const_iterator it;
 		for( it = kids->elements.begin(); it != kids->elements.end(); it++ )
 		{
-			PDictionary kid = boost::shared_static_cast<Dictionary>( Object::ResolveIndirect_(*it, doc->xrefTable ) );
+			PDictionary kid = Object::ResolveIndirect_<Dictionary>( *it, doc->xrefTable );
 			PArray limits = kid->Get<Array>( "Limits", doc->xrefTable );
 
 			if (key < *(String *)(limits->elements[0].get()))

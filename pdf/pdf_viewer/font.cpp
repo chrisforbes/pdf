@@ -6,11 +6,8 @@
 
 #pragma comment( lib, "freetype.lib" )
 
-static FT_Library library;
 static FT_Face face = 0;
-extern Document * doc;
-
-static bool isInited;
+extern PDocument doc;
 
 struct
 	{
@@ -21,85 +18,12 @@ struct
 		{ sizeof(BITMAPINFOHEADER), 0, 1, 1, 8, BI_RGB, 0, 0, 0, 0,0 }, { 0 }
 	};
 
-void InitFontSystem( void )
+void InitGrayLevels()
 {
-	if (isInited) return;
-	FT_Init_FreeType( &library );
-	isInited = true;
-
 	// build this really screwy graylevels table. 
 	// this is also incorrect, as lum != avg(r,g,b)
 	for( int i = 0; i < 256; i++ )
 		bmi.grayLevels[i].rgbBlue = bmi.grayLevels[i].rgbGreen = bmi.grayLevels[i].rgbRed = (255-i);
-}
-
-static PDictionary lastFontDescriptor;
-
-void BindCompactFont( PDictionary fontDescriptor, PStream ff3 )
-{
-	//String subtype = ff3->dict->Get<Name>("Subtype", doc->xrefTable)->str;
-	size_t streamSize = 0;
-	char const * data = ff3->GetStreamBytes( doc->xrefTable, &streamSize );
-
-	int error = FT_New_Memory_Face( library, (FT_Byte const *)data, streamSize, 0, &face );
-	if ( error )
-	{
-		char sz[256];
-		sprintf( sz, "Freetype2 error loading from ff3: %x", error );
-		MessageBoxA( 0, sz, "Fail", 0 );
-	}
-}
-
-void BindTrueTypeFont( PDictionary fontDescriptor, PStream ff2 )
-{
-	size_t streamSize = 0;
-	char const * data = ff2->GetStreamBytes( doc->xrefTable, &streamSize );
-
-	int error = FT_New_Memory_Face( library, (FT_Byte const *)data, streamSize, 0, &face );
-	if ( error )
-	{
-		char sz[64];
-		sprintf( sz, "Freetype2 error loading from ff2: %x", error );
-		MessageBoxA( 0, sz, "Fail", 0 );
-	}
-}
-
-void InstallEmbeddedFont( PDictionary fontDescriptor, int& nopBinds )
-{
-	InitFontSystem();
-
-	if (!fontDescriptor)
-		MessageBox( 0, L"WTF ARE YOU DOING, THERE IS NO SPOON/FONT", L"Epic Fail", 0 );
-
-	if (lastFontDescriptor == fontDescriptor)
-	{
-		++nopBinds;
-		return;
-	}
-
-	/* todo: cache multiple faces, be vaguely smart, etc */
-	if (face)
-	{
-		FT_Done_Face( face );
-		face = 0;
-	}
-
-	lastFontDescriptor = fontDescriptor;
-
-	PStream ff1 = fontDescriptor->Get<Stream>( "FontFile", doc->xrefTable );
-	if (ff1)
-	{
-		MessageBox( 0, L"FontFile", L"noti", 0 );
-		return;
-	}
-
-	PStream ff2 = fontDescriptor->Get<Stream>( "FontFile2", doc->xrefTable );
-	if (ff2)
-		return BindTrueTypeFont( fontDescriptor, ff2 );
-
-	PStream ff3 = fontDescriptor->Get<Stream>( "FontFile3", doc->xrefTable );
-	if (ff3)
-		return BindCompactFont( fontDescriptor, ff3 );
 }
 
 static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
@@ -116,7 +40,7 @@ static void DrawChar( HDC intoDC, FT_GlyphSlot slot, int x, int y )
 
 void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height )
 {
-	assert( library && face && "This stuff needs to be initialized!" );
+	assert( face && "This stuff needs to be initialized!" );
 
 	int error = FT_Set_Char_Size( face, (int)(64 * t.EffectiveFontWidth()), (int)(64 * t.EffectiveFontHeight()), 72, 72 );
 
@@ -141,4 +65,36 @@ void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height 
 
 		++content;
 	}
+}
+
+static PDictionary GetResources( PDictionary page )
+{
+	while( page )
+	{
+		PDictionary resources = page->Get<Dictionary>( "Resources", doc->xrefTable );
+		if( resources )
+			return resources;
+
+		page = page->Get<Dictionary>( "Parent", doc->xrefTable );
+	}
+	return PDictionary();
+}
+
+extern FT_Face LoadFontFromCache( PDictionary fontDescriptor, XrefTable const & xrefTable );
+
+void BindFont( PDictionary page, TextState& t, int& nopBinds )
+{
+	if( !t.fontNameLen ) return;
+	PDictionary resources = GetResources( page );
+	if( !resources ) return;
+	PDictionary fonts = resources->Get<Dictionary>( "Font", doc->xrefTable );
+	if( !fonts ) return;
+	PDictionary font = fonts->Get<Dictionary>( t.fontName, doc->xrefTable );
+	if( !font ) return;
+
+	//String subtype = font->Get<Name>( "Subtype", doc->xrefTable )->str;
+	//String baseFont = font->Get<Name>( "BaseFont", doc->xrefTable )->str;
+	PDictionary fontDescriptor = font->Get<Dictionary>( "FontDescriptor", doc->xrefTable );
+
+	face = LoadFontFromCache( fontDescriptor, doc->xrefTable );
 }
