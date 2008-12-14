@@ -33,7 +33,7 @@ void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height 
 
 		t.m.v[4] += t.c * t.EffectiveFontHeight();// * t.HorizontalScale();
 		if (*content == ' ')
-		t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
+			t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
 
 		++content;
 	}

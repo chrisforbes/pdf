@@ -135,6 +135,7 @@ token Token( const char *& p, const char *& start, char const * end )
 		MATCH_KEYWORD( "true", token_e::True );
 		MATCH_KEYWORD( "false", token_e::False );
 		MATCH_KEYWORD( "null", token_e::Null );
+		MATCH_KEYWORD( "startxref", token_e::KeywordStartXref );
 	}
 
 	return t;

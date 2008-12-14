@@ -24,6 +24,7 @@ enum token_e
 	Unknown,
 	HexString,
 	Keyword,
+	KeywordStartXref,
 };
 }
 typedef token_e::token_e token;

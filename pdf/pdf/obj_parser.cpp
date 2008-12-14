@@ -111,7 +111,7 @@ String ParseContent( char const *& p, char const * end, std::vector<PObject>& in
 	}
 
 	// i have no idea what this funtion should have returned here, but it used to fall through
-	assert( !"WTF" );
+//	assert( !"WTF" );
 }
 
 size_t UnescapeString( char * dest, char const * src, char const * srcend )
@@ -175,7 +175,10 @@ PObject ParseDirect( const char* p, const XrefTable& objmap )
 
 	char const * tokenStart;
 	token t = Token( p, tokenStart, 0 );
+
 	if ( t == token_e::KeywordEndObj )
+		return o;
+	else if (t == token_e::KeywordStartXref )
 		return o;
 	else if ( t == token_e::Stream && o->Type() == ObjectType::Dictionary )
 	{

@@ -116,7 +116,7 @@ FT_Face LoadFontFromCache( PDictionary fontDescriptor, XrefTable const & xrefTab
 {
 	if( !fontDescriptor )
 	{
-		MessageBox( 0, L"WTF ARE YOU DOING, THERE IS NO SPOON/FONT", L"Epic Fail", 0 );
+		//MessageBox( 0, L"WTF ARE YOU DOING, THERE IS NO SPOON/FONT", L"Epic Fail", 0 );
 		return NULL;
 	}
 
