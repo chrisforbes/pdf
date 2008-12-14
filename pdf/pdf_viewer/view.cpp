@@ -36,6 +36,22 @@ static void DrawString( String * str, int width, int height, TextState& t )
 	RenderSomeFail( cacheDC, sz, t, height );
 }
 
+static void RenderOperatorDebug( String& op, int width, int height, TextState& t )
+{
+	int oldMode = SetBkMode( cacheDC, OPAQUE );
+	COLORREF oldColor = SetBkColor( cacheDC, 0x000000ff );
+	COLORREF oldTextColor = SetTextColor( cacheDC, 0x00ffffff );
+
+	RECT r = { t.m.v[4], height - t.m.v[5] };
+	r.right = r.left + 50;
+	r.bottom = r.top + 50;
+	DrawTextA( cacheDC, op.start, op.Length(), &r, DT_LEFT );
+
+	SetTextColor( cacheDC, oldTextColor );
+	SetBkColor( cacheDC, oldColor );
+	SetBkMode( cacheDC, oldMode );
+}
+
 extern void BindFont( PDictionary page, TextState& t, int& nopBinds );
 extern HWND appHwnd;
 
@@ -48,9 +64,6 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 
 	size_t numOperations = 0;
 	std::vector<PObject> args;
-
-	// select in a bogus font
-	int oldMode = SetBkMode( cacheDC, TRANSPARENT );
 
 	while( p < pageContent + length )
 	{
@@ -136,7 +149,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 		{
 			// next line based on leading
 			assert( args.size() == 0 );
-			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
+			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
 			t.m = t.lm;
 		}
 
@@ -145,8 +158,8 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			// next line, setting leading
 			assert( args.size() == 2 );
 			t.l = -ToNumber( args[1] );		// todo: check this
-			t.lm.v[4] += t.fontSize * t.lm.v[0] * ToNumber( args[0] );
-			t.lm.v[5] += t.fontSize * t.lm.v[3] * ToNumber( args[1] );
+			t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
+			t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
@@ -154,25 +167,29 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 		{
 			// next line with explicit positioning, preserve leading
 			assert( args.size() == 2 );
-			t.lm.v[4] += t.fontSize * t.lm.v[0] * ToNumber( args[0] );
-			t.lm.v[5] += t.fontSize * t.lm.v[3] * ToNumber( args[1] );
+			t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
+			t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
 			t.m = t.lm;
 		}
 
 		else if (op == String("'"))
 		{
+			RenderOperatorDebug( op, width, height, t );
+
 			assert( args.size() == 1 );
-			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
+			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[0].get(), width, height, t );
 		}
 
 		else if (op == String("\""))
 		{
+			RenderOperatorDebug( op, width, height, t );
+
 			assert( args.size() == 3 );
 			t.w = ToNumber( args[0] );
 			t.c = ToNumber( args[1] );
-			t.lm.v[5] += t.fontSize * t.lm.v[3] * t.l;
+			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( (String *)args[2].get(), width, height, t );
 		}
@@ -197,17 +214,33 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 				{
 					// todo: non-horizontal writing modes
 					double k = ToNumber( *it );
-					t.m.v[4] -= k / 1000;
+					t.m.v[4] -= t.EffectiveFontWidth() * k / 1000;
 				}
 			}
 		}
+/*		else if (op == String("BDC"))
+			{}	// todo: begin drawing context
+		else if (op == String("gs"))
+			{}	// todo: change graphics state
+		else if (op == String("g"))
+			{}	// todo: ???
+		else if (op == String("ET"))
+			{}	// todo: free any text state?
+		else if (op == String("EMC"))
+			{}	// todo: ???
+		else if (op == String("i"))
+			{}	// todo: graphics op
+		else if (op == String("re"))
+			{}	// todo: graphics op		*/
+
+/*		else
+			DebugBreak();	*/
 
 		++numOperations;
 		while( *p == '\r' || *p == '\n' )
 			++p;
 	}
 
-	SetBkMode( cacheDC, oldMode );
 	return numOperations;
 }
 
