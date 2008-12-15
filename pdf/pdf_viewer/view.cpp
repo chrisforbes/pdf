@@ -549,6 +549,7 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			{
 			case VK_F3:
 				{
+					DWORD start = GetTickCount();
 					SetWindowText( appHwnd, L"PDF Viewer - Running Test - Press <ESC> to cancel" );
 					PDictionary page = doc->GetPage(0);
 					while( page )
@@ -565,7 +566,9 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 						}
 					}
 
-					SetWindowText( appHwnd, L"PDF Viewer - Test complete" );
+					wchar_t sz[128];
+					_snwprintf( sz, 128, L"PDF Viewer - Test complete - %u ms", GetTickCount() - start );
+					SetWindowText( appHwnd, sz );
 				}
 				break;
 			case VK_F4:
