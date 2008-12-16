@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    User-selectable configuration macros (specification only).           */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005, 2006, 2007 by             */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 by       */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -92,7 +92,7 @@ FT_BEGIN_HEADER
   /* This is done to allow FreeType clients to run unmodified, forcing     */
   /* them to display normal gray-level anti-aliased glyphs.                */
   /*                                                                       */
-#define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
+/* #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING */
 
 
   /*************************************************************************/
@@ -206,32 +206,6 @@ FT_BEGIN_HEADER
   /*                                                                       */
 /* #define  FT_EXPORT(x)       extern x */
 /* #define  FT_EXPORT_DEF(x)   x */
-#ifndef __GNUC__
-# define __DLL_IMPORT__  __declspec(dllimport)
-# define __DLL_EXPORT__  __declspec(dllexport)
-#else
-# define __DLL_IMPORT__  __attribute__((dllimport)) extern
-# define __DLL_EXPORT__  __attribute__((dllexport)) extern
-#endif 
-
-#if (defined __WIN32__) || (defined _WIN32)
-# ifdef BUILD_FREETYPE2_DLL
-#  define FREETYPE2_DLL_IMPEXP     __DLL_EXPORT__
-# elif defined(FREETYPE2_STATIC)
-#  define FREETYPE2_DLL_IMPEXP      
-# elif defined (USE_FREETYPE2_DLL)
-#  define FREETYPE2_DLL_IMPEXP     __DLL_IMPORT__
-# elif defined (USE_FREETYPE2_STATIC)
-#  define FREETYPE2_DLL_IMPEXP      
-# else /* assume USE_FREETYPE2_DLL */
-#  define FREETYPE2_DLL_IMPEXP     __DLL_IMPORT__
-# endif
-#else /* __WIN32__ */
-# define FREETYPE2_DLL_IMPEXP  
-#endif
- 
-#define FT_EXPORT(x)    FREETYPE2_DLL_IMPEXP x
-#define FT_BASE(x)      FREETYPE2_DLL_IMPEXP x
 
 
   /*************************************************************************/
@@ -462,6 +436,7 @@ FT_BEGIN_HEADER
 #define TT_CONFIG_CMAP_FORMAT_8
 #define TT_CONFIG_CMAP_FORMAT_10
 #define TT_CONFIG_CMAP_FORMAT_12
+#define TT_CONFIG_CMAP_FORMAT_14
 
 
   /*************************************************************************/
@@ -650,7 +625,8 @@ FT_BEGIN_HEADER
 
   /*************************************************************************/
   /*                                                                       */
-  /* Compile autofit module with CJK script support.                       */
+  /* Compile autofit module with CJK (Chinese, Japanese, Korean) script    */
+  /* support.                                                              */
   /*                                                                       */
 #define AF_CONFIG_OPTION_CJK
 
@@ -673,7 +649,7 @@ FT_BEGIN_HEADER
    * is recommended to disable the macro since it reduces the library's code
    * size and activates a few memory-saving optimizations as well.
    */
-/* #define FT_CONFIG_OPTION_OLD_INTERNALS */
+#define FT_CONFIG_OPTION_OLD_INTERNALS
 
 
   /*
