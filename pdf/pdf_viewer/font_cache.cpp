@@ -11,7 +11,6 @@ class FontCache
 
 	std::map<PDictionary, FT_Face> faces;
 
-
 	FT_Face LoadCompactFont( PDictionary fontDescriptor, PStream ff3, XrefTable const & xrefTable )
 	{
 		FT_Face face;

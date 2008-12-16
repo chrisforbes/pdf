@@ -34,4 +34,4 @@ public:
 };
 typedef boost::shared_ptr< Document > PDocument;
 
-double ToNumber( PObject obj );	// needs a home!
+double ToNumber( PObject const & obj );	// needs a home!

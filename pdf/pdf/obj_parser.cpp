@@ -89,31 +89,6 @@ PArray ParseArray( const char*& p, char const * end )
 	}
 }
 
-// returns the operator
-String ParseContent( char const *& p, char const * end, std::vector<PObject>& intoVector )
-{
-	while( p < end )
-	{
-		const char * q = p;
-		const char * r = p;
-		token t = Token( q, r, end );
-
-		if (q > end || r > end)
-			DebugBreak();
-
-		if (t == token_e::Keyword)
-		{
-			p = q;
-			return String( r, q );
-		}
-
-		intoVector.push_back( Parse( p, end ) );
-	}
-
-	// i have no idea what this funtion should have returned here, but it used to fall through
-//	assert( !"WTF" );
-}
-
 size_t UnescapeString( char * dest, char const * src, char const * srcend )
 {
 	char * destStart = dest;

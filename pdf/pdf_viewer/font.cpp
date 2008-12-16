@@ -17,11 +17,10 @@ extern PDocument doc;
 
 extern FT_Face LoadFontFromCache( PDictionary fontDescriptor, XrefTable const & xrefTable );
 
-void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height )
+void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height )
 {
 	assert( face && "This stuff needs to be initialized!" );
 
-	HDC tmpDC = CreateCompatibleDC( intoDC );
 	while( *content )
 	{
 		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, (int)(64 * t.EffectiveFontWidth()), (int)(64 * t.EffectiveFontHeight()) );
@@ -42,7 +41,6 @@ void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height 
 
 		++content;
 	}
-	DeleteDC( tmpDC );
 }
 
 static PDictionary GetResources( PDictionary page )
@@ -75,5 +73,6 @@ void BindFont( PDictionary page, TextState& t, int& nopBinds )
 	FT_Face newFace = LoadFontFromCache( fontDescriptor, doc->xrefTable );
 	if( newFace == face )
 		++nopBinds;
-	face = newFace;
+	if( newFace )
+		face = newFace;
 }

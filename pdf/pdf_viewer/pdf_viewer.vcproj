@@ -192,6 +192,14 @@
 			</File>
 		</Filter>
 		<File
+			RelativePath=".\contentStreamElement.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\contentStreamElement.h"
+			>
+		</File>
+		<File
 			RelativePath=".\font.cpp"
 			>
 		</File>

@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "../pdf/parse.h"
+#include "contentStreamElement.h"
 #include "resource.h"
 #include "textstate.h"
 
 HDC cacheDC = NULL;
+HDC tmpDC = NULL;
 HWND viewHwnd;
 wchar_t const * viewWndClass = L"pdf-viewwnd";
 PDictionary currentPage;
@@ -20,20 +22,20 @@ extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 void SetCurrentPage( PDictionary page );	// declared later, this file
 
 // font.cpp
-extern void RenderSomeFail( HDC intoDC, char const * content, TextState& t, int height );
+extern void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height );
 
-static void DrawString( String * str, int width, int height, TextState& t )
+static void DrawString( String str, int width, int height, TextState& t )
 {
-	if (!str) return;
+	if (!str.start) return;
 
 	char sz[4096];
 
-	assert( str->Length() < 4096 && "too damn long" );
+	assert( str.Length() < 4096 && "too damn long" );
 
-	size_t unescapedLen = UnescapeString( sz, str->start, str->end );
+	size_t unescapedLen = UnescapeString( sz, str.start, str.end );
 	sz[unescapedLen] = 0;
 
-	RenderSomeFail( cacheDC, sz, t, height );
+	RenderSomeFail( cacheDC, tmpDC, sz, t, height );
 }
 
 static void RenderOperatorDebug( String& op, int width, int height, TextState& t )
@@ -55,6 +57,14 @@ static void RenderOperatorDebug( String& op, int width, int height, TextState& t
 extern void BindFont( PDictionary page, TextState& t, int& nopBinds );
 extern HWND appHwnd;
 
+double ToNumber( const ContentStreamElement& cse )
+{
+	char* end = const_cast< char* >( cse.end );
+	double ret = strtod( cse.start, &end );
+	assert( end == cse.end && "Invalid number" );
+	return ret;
+}
+
 // returns number of ops
 static size_t PaintPageContent( int width, int height, PDictionary page, PStream content, TextState& t, size_t& numBinds, int& nopBinds )
 {
@@ -63,161 +73,167 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 	char const * p = pageContent;
 
 	size_t numOperations = 0;
-	std::vector<PObject> args;
+	const int MAX_ARGS = 16;
+	ContentStreamElement args[MAX_ARGS];
 
 	while( p < pageContent + length )
 	{
-		args.clear();
-		String op = ParseContent( p, pageContent + length, args );
+		assert( *p != '\r' && *p != '\n' );
 
-		if (op == String("Tc"))
+		for( int i = 0 ; i < MAX_ARGS ; i++ )
+			args[i].reset();
+
+		int num_args = 0;
+		while( true )
 		{
-			assert( args.size() == 1 );
-			t.c = ToNumber( args[0] );
+			assert( num_args <= MAX_ARGS );
+			if( !args[num_args].parse( p, pageContent+length ) )
+				assert( !"WTF" );
+			p = args[num_args].end;
+			if( args[num_args].type == ContentStreamElement::Elem_Operator )
+				break;
+			++num_args;
 		}
 
-		else if (op == String("Tw"))
+		String op = args[num_args].ToString();
+		assert( op.start && op.start != op.end );
+
+		switch( *op.start )
 		{
-			assert( args.size() == 1 );
-			t.w = ToNumber( args[0] );
-		}
+		case 'T':
+			assert( op.end == op.start + 2 );
+			switch( op.start[1] )
+			{
+			case 'c':
+				assert( num_args == 1 );
+				t.c = ToNumber( args[0] );
+				break;
+			case 'w':
+				assert( num_args == 1 );
+				t.w = ToNumber( args[0] );
+				break;
+			case 'z':
+				assert( num_args == 1 );
+				t.h = 100 + ToNumber( args[0] );
+				break;
+			case 'L':
+				assert( num_args == 1 );
+				t.l = ToNumber( args[0] );
+				break;
+			case 's':
+				assert( num_args == 1 );
+				t.rise = ToNumber( args[0] );
+				break;
+			case 'r':
+				assert( num_args == 1 );
+				t.mode = (int)ToNumber( args[0] );
+				break;
+			case 'f':
+				{
+					assert( num_args == 2 );
+					String name = args[0].ToString();
+					memcpy( t.fontName, name.start, name.Length() );
+					t.fontNameLen = name.Length();
+					t.fontName[ t.fontNameLen ] = 0;
+					t.fontSize = ToNumber( args[1] );
 
-		else if (op == String("Tz"))
-		{
-			assert( args.size() == 1 );
-			t.h = 100 + ToNumber( args[0] );
-		}
+					BindFont( page, t, nopBinds );
+					++numBinds;
+					break;
+				}
+			case 'm':
+				// set text matrix explicit
+				assert( num_args == 6 );
 
-		else if (op == String("TL"))
-		{
-			assert( args.size() == 1 );
-			t.l = ToNumber( args[0] );
-		}
+				for( int i = 0; i < 6; i++ )
+					t.m.v[i] = ToNumber( args[i] );
 
-		else if (op == String("Ts"))
-		{
-			assert( args.size() == 1 );
-			t.rise = ToNumber( args[0] );
-		}
+				// since lm.v[0] and lm.v[3] are the "real" font size,
+				// we need to regen our font here
 
-		else if (op == String("Tr"))
-		{
-			assert( args.size() == 1 );
-			t.mode = (int)ToNumber( args[0] );
-		}
+				t.lm = t.m;
 
-		else if (op == String("Tf"))
-		{
-			assert( args.size() == 2 );
-			PName name = boost::shared_static_cast<Name>(args[0]);
-			memcpy( t.fontName, name->str.start, name->str.Length() );
-			t.fontNameLen = name->str.Length();
-			t.fontName[ t.fontNameLen ] = 0;
-			t.fontSize = ToNumber(args[1]);
+				BindFont( page, t, nopBinds );
+				++numBinds;
+				break;
+			case '*':
+				// next line based on leading
+				assert( num_args == 0 );
+				t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
+				t.m = t.lm;
+				break;
+			case 'D':
+				// next line, setting leading
+				assert( num_args == 2 );
+				t.l = -ToNumber( args[1] );		// todo: check this
+				t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
+				t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
+				t.m = t.lm;
+				break;
+			case 'd':
+				// next line with explicit positioning, preserve leading
+				assert( num_args == 2 );
+				t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
+				t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
+				t.m = t.lm;
+				break;
+			case 'J':
+				{
+					assert( num_args == 1 );
 
-			BindFont( page, t, nopBinds );
-			++numBinds;
-		}
+					for( ContentStreamElement* it = args[0].content ; it ; it = it->next )
+					{
+						if( it->type == ContentStreamElement::Elem_String )
+							DrawString( it->ToString(), width, height, t );
+						else
+						{
+							// todo: non-horizontal writing modes
+							double k = ToNumber( *it );
+							t.m.v[4] -= t.EffectiveFontWidth() * k / 1000;
+						}
+					}
+					break;
+				}
+			case 'j':
+				assert( num_args == 1 );
+				DrawString( args[0].ToString(), width, height, t );
+				break;
+			}
+			break;
+		case 'B':
+			switch( op.start[1] )
+			{
+			case 'T':
+				assert( op.end == op.start + 2 );
+				assert( num_args == 0 );
+				t.m = t.lm = Matrix();
 
-		else if (op == String("BT"))
-		{
-			assert( args.size() == 0 );
-			t.m = t.lm = Matrix();
+				BindFont( page, t, nopBinds );
+				++numBinds;
+				break;
+			}
+			break;
+		case '\'':
+			//RenderOperatorDebug( op, width, height, t );
 
-			BindFont( page, t, nopBinds );
-			++numBinds;
-		}
-
-		else if (op == String("Tm"))
-		{
-			// set text matrix explicit
-			assert( args.size() == 6 );
-
-			for( int i = 0; i < 6; i++ )
-				t.m.v[i] = ToNumber( args[i] );
-
-			// since lm.v[0] and lm.v[3] are the "real" font size,
-			// we need to regen our font here
-
-			t.lm = t.m;
-
-			BindFont( page, t, nopBinds );
-			++numBinds;
-		}
-
-		else if (op == String("T*"))
-		{
-			// next line based on leading
-			assert( args.size() == 0 );
+			assert( num_args == 1 );
 			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
 			t.m = t.lm;
-		}
+			DrawString( args[0].ToString(), width, height, t );
+			break;
+		case '"':
+			//RenderOperatorDebug( op, width, height, t );
 
-		else if (op == String("TD"))
-		{
-			// next line, setting leading
-			assert( args.size() == 2 );
-			t.l = -ToNumber( args[1] );		// todo: check this
-			t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
-			t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
-			t.m = t.lm;
-		}
-
-		else if (op == String("Td"))
-		{
-			// next line with explicit positioning, preserve leading
-			assert( args.size() == 2 );
-			t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
-			t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
-			t.m = t.lm;
-		}
-
-		else if (op == String("'"))
-		{
-			RenderOperatorDebug( op, width, height, t );
-
-			assert( args.size() == 1 );
-			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
-			t.m = t.lm;
-			DrawString( (String *)args[0].get(), width, height, t );
-		}
-
-		else if (op == String("\""))
-		{
-			RenderOperatorDebug( op, width, height, t );
-
-			assert( args.size() == 3 );
+			assert( num_args == 3 );
 			t.w = ToNumber( args[0] );
 			t.c = ToNumber( args[1] );
 			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
 			t.m = t.lm;
-			DrawString( (String *)args[2].get(), width, height, t );
+			DrawString( args[2].ToString(), width, height, t );
+			break;
 		}
 
-		else if (op == String("Tj"))
-		{
-			assert( args.size() == 1 );
-			DrawString( (String *)args[0].get(), width, height, t );
-		}
 
-		else if (op == String("TJ"))
-		{
-			assert( args.size() == 1 );
-			Array * arr = (Array *)args[0].get();
-
-			std::vector<PObject>::const_iterator it;
-			for( it = arr->elements.begin(); it != arr->elements.end(); it++ )
-			{
-				if ((*it)->Type() == ObjectType::String)
-					DrawString( (String *)it->get(), width, height, t );
-				else
-				{
-					// todo: non-horizontal writing modes
-					double k = ToNumber( *it );
-					t.m.v[4] -= t.EffectiveFontWidth() * k / 1000;
-				}
-			}
-		}
 /*		else if (op == String("BDC"))
 			{}	// todo: begin drawing context
 		else if (op == String("gs"))
@@ -237,7 +253,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			DebugBreak();	*/
 
 		++numOperations;
-		while( *p == '\r' || *p == '\n' )
+		while( p < pageContent + length && isspace( *p ) )
 			++p;
 	}
 
@@ -291,7 +307,7 @@ static void PaintPage( int width, int height, PDictionary page )
 }
 
 static std::vector<std::pair<size_t, HBITMAP>> cachedPages;
-static const int PAGE_CACHE_MAX_SIZE = 4;
+static const int PAGE_CACHE_MAX_SIZE = 8;
 
 static void EvictCacheItem( std::pair<size_t, HBITMAP> item )
 {
@@ -315,7 +331,7 @@ static void EvictCacheItem( std::pair<size_t, HBITMAP> item )
 	}
 }
 
-void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
+static void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDictionary page, int y )
 {
 	HBITMAP cacheBitmap = NULL;
 	size_t pageNum = doc->GetPageIndex( page );
@@ -418,7 +434,7 @@ void ClampToEndOfDocument()
 	}
 }
 
-void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
+static void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 {
 	if (!currentPage)
 		return;
@@ -515,7 +531,10 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			PAINTSTRUCT ps;
 			HDC dc = ::BeginPaint( hwnd, &ps );
 			if( !cacheDC )
+			{
 				cacheDC = CreateCompatibleDC( dc );
+				tmpDC = CreateCompatibleDC( dc );
+			}
 			PaintView( hwnd, dc, &ps );
 			::ReleaseDC( hwnd, dc );
 			return 0;
