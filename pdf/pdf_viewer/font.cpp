@@ -3,7 +3,12 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
+#ifdef DEBUG
+#pragma comment( lib, "freetyped.lib" )
+#else
 #pragma comment( lib, "freetype.lib" )
+#endif
 
 #include "glyphcache.h"
 

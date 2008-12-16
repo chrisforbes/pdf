@@ -108,7 +108,8 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="pch.h"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -190,6 +191,14 @@
 					Name="VCCLCompilerTool"
 					UsePrecompiledHeader="1"
 					PrecompiledHeaderThrough="pch.h"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="1"
 				/>
 			</FileConfiguration>
 		</File>
