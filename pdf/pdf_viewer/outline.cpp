@@ -41,7 +41,7 @@ void BuildOutline( Dictionary * parent, HTREEITEM parentItem, const XrefTable & 
 		HTREEITEM treeItem = AddOutlineItem( 
 			itemTitle->start, 
 			itemTitle->end - itemTitle->start, 
-			(bool)item->Get( "First" ), parentItem, 
+			(bool)item->Get<Object>( "First", objmap ), parentItem, 
 			item );
 
 		item = item->Get<Dictionary>( "Next", objmap ).get();

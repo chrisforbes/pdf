@@ -41,3 +41,21 @@ CachedGlyph* GetGlyph( HDC intoDC, HDC tmpDC, FT_Face face, FT_ULong c, int effe
 	SelectObject( tmpDC, oldBitmap );
 	return &glyph;
 }
+
+size_t GetCachedGlyphCount()
+{
+	size_t ret = 0;
+
+	std::map<FT_Face, std::map<int, std::map<int, std::map<FT_ULong, CachedGlyph> > > >::const_iterator it;
+	for( it = glyphCache.begin() ; it != glyphCache.end() ; it++ )
+	{
+		std::map<int, std::map<int, std::map<FT_ULong, CachedGlyph> > >::const_iterator it2;
+		for( it2 = it->second.begin() ; it2 != it->second.end() ; it2++ )
+		{
+			std::map<int, std::map<FT_ULong, CachedGlyph> >::const_iterator it3;
+			for( it3 = it2->second.begin() ; it3 != it2->second.end() ; it3++ )
+				ret += it3->second.size();
+		}
+	}
+	return ret;
+}

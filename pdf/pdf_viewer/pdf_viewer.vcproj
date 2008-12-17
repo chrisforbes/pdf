@@ -216,6 +216,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\image.cpp"
+			>
+		</File>
+		<File
 			RelativePath=".\main.cpp"
 			>
 		</File>

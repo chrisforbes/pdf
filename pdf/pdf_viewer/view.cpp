@@ -27,6 +27,9 @@ void SetCurrentPage( PDictionary page );	// declared later, this file
 // font.cpp
 extern void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height, int zoom );
 
+// image.cpp
+extern void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int pageHeight, XrefTable const & xrefTable, int zoom );
+
 static void DrawString( String str, int width, int height, TextState& t )
 {
 	if (!str.start) return;
@@ -78,6 +81,13 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 	size_t numOperations = 0;
 	const int MAX_ARGS = 16;
 	ContentStreamElement args[MAX_ARGS];
+
+	DoubleRect mediaBox = GetPageMediaBox( doc.get(), page.get() );
+	Matrix ctm;
+	ctm.v[0] = (double)width / (72 * (mediaBox.right - mediaBox.left));
+	ctm.v[3] = (double)height / (72 * (mediaBox.bottom - mediaBox.top));
+	ctm.v[4] = -(72 * (mediaBox.right - mediaBox.left)) * ctm.v[0];
+	ctm.v[5] = -(72 * (mediaBox.bottom - mediaBox.top)) * ctm.v[3];
 
 	while( p < pageContent + length )
 	{
@@ -204,6 +214,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			}
 			break;
 		case 'B':
+			assert( op.end >= op.start + 2 );
 			switch( op.start[1] )
 			{
 			case 'T':
@@ -234,6 +245,36 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			t.m = t.lm;
 			DrawString( args[2].ToString(), width, height, t );
 			break;
+		case 'D':
+			assert( op.end >= op.start + 2 );
+			if( op.start[1] == 'o' && op.end == op.start + 2 )
+			{
+				assert( args[0].type == ContentStreamElement::Elem_Name );
+				String externalObjectName = args[0].ToString();
+				PDictionary resources = page->Get<Dictionary>( "Resources", doc->xrefTable );
+				if( !resources )
+					break;
+				PDictionary xobjects = resources->Get<Dictionary>( "XObject", doc->xrefTable );
+				if( !xobjects )
+					break;
+				PStream obj = xobjects->Get<Stream>( externalObjectName, doc->xrefTable );
+				if( !obj )
+					break;
+				PName type = obj->dict->Get<Name>( "Subtype", doc->xrefTable );
+				if( !type )
+					break;
+
+				if( type->str == String( "Image" ) )
+					RenderImage( cacheDC, tmpDC, obj, ctm, height, doc->xrefTable, zoom );
+			}
+		case 'c':
+			if( op.end == op.start + 2 && op.start[1] == 'm' )
+			{
+				assert( num_args == 6 );
+
+				for( int i = 0; i < 6; i++ )
+					ctm.v[i] = ToNumber( args[i] );
+			}
 		}
 
 
@@ -557,7 +598,6 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 				tmpDC = CreateCompatibleDC( dc );
 			}
 			PaintView( hwnd, dc, &ps );
-			::ReleaseDC( hwnd, dc );
 			::EndPaint( hwnd, &ps );
 			return 0;
 		}
@@ -606,9 +646,10 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 							return 0;
 						}
 					}
+					extern size_t GetCachedGlyphCount();
 
 					wchar_t sz[128];
-					_snwprintf( sz, 128, L"PDF Viewer - Test complete - %u ms", GetTickCount() - start );
+					_snwprintf( sz, 128, L"PDF Viewer - Test complete - %u ms (%u glyphs)", GetTickCount() - start, GetCachedGlyphCount() );
 					SetWindowText( appHwnd, sz );
 				}
 				break;

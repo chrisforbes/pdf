@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "parse.h"
 
+#include "filters.h"
+
 // The "None" PNG predictor
 static void Flate_None( char* dest, const char* src, int width )
 {
@@ -71,6 +73,8 @@ const char* Stream::ApplyFilter( const Name& filterName, PDictionary filterParms
 						break;
 					default:
 						assert( !"win?" );
+						Flate_None( current_out, current, columns );
+							break;
 					}
 					prev = current_out;
 					current += columns;
@@ -84,9 +88,16 @@ const char* Stream::ApplyFilter( const Name& filterName, PDictionary filterParms
 			return NULL;
 		}
 	}
+	else if( filterName.str == String( "DCTDecode" ) )
+	{
+		size_t width, height;
+		char* data = DCTDecode( inputStart, inputEnd - inputStart, *outputLength, width, height );
+
+		return data;
+	}
 	else
 	{
-		DebugBreak();
+		//DebugBreak();
 		return NULL;
 	}
 }

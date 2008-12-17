@@ -88,7 +88,7 @@ public:
 	{
 	}
 
-	String( char const * literalString )
+	explicit String( char const * literalString )
 		: start( literalString ), end( literalString + strlen( literalString ) )
 	{}
 
@@ -192,29 +192,36 @@ class Dictionary : public Object
 	std::map<String, PObject> dict;
 	typedef std::map<String, PObject>::const_iterator dict_it;
 public:
-	PObject Get( const Name& name )
+	PObject Get( const String& name )
 	{
-		dict_it it = dict.find( name.str );
+		dict_it it = dict.find( name );
 		if( it != dict.end() )
 			return it->second;
 		return PObject();
 	}
 
-	PObject Get( char const * literalString )
+	PObject Get( const String& string, const XrefTable& objmap )
 	{
-		return Get( Name( String( literalString ) ) );
+		return Object::ResolveIndirect_<Object>( Get( string ), objmap );
 	}
 
-	PObject Get( char const * literalString, const XrefTable& objmap )
+	PObject Get( const char* string, const XrefTable& objmap )
 	{
-		return Object::ResolveIndirect_<Object>( Get( literalString ), objmap );
+		return Get( String( string ), objmap );
+	}
+
+	template< typename T >
+	boost::shared_ptr<T> Get( const String& literalString, const XrefTable& objmap )
+	{
+		return Object::ResolveIndirect_<T>( Get( literalString ), objmap );
 	}
 
 	template< typename T >
 	boost::shared_ptr<T> Get( char const * literalString, const XrefTable& objmap )
 	{
-		return Object::ResolveIndirect_<T>( Get( literalString ), objmap );
+		return Get<T>( String( literalString ), objmap );
 	}
+
 
 	void Add( const Name& key, const PObject& value )
 	{

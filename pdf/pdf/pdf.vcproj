@@ -145,6 +145,36 @@
 	<References>
 	</References>
 	<Files>
+		<Filter
+			Name="Filters"
+			>
+			<File
+				RelativePath=".\DCT.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+						PrecompiledHeaderThrough=""
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\filters.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath=".\document.cpp"
 			>

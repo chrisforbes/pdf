@@ -68,11 +68,11 @@ PDictionary ReadPdfTrailerSection( MappedFile const & f, XrefTable & objmap, cha
 
 void WalkPreviousFileVersions( MappedFile const & f, XrefTable & objmap, PDictionary d )
 {
-	PObject prev = d->Get( "Prev" );
-	if (!prev || prev->Type() != ObjectType::Number)
+	PNumber prev = d->Get<Number>( "Prev", objmap );
+	if( !prev )
 		return;
 
-	char const * xref = f.F() + ((Number *)prev.get())->num;
+	char const * xref = f.F() + prev->num;
 	//p = objmap.ReadXrefSection( f, p );
 	ReadPdfTrailerSection( f, objmap, xref );
 }
