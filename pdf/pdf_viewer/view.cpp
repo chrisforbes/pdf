@@ -117,7 +117,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 				break;
 			case 'z':
 				assert( num_args == 1 );
-				t.h = 100 + ToNumber( args[0] );
+				t.h = ToNumber( args[0] );
 				break;
 			case 'L':
 				assert( num_args == 1 );

@@ -33,14 +33,14 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 
 		HGDIOBJ oldBitmap = SelectObject( tmpDC, glyph->bitmap );
 		BitBlt( intoDC, ZOOM(x) + glyph->left_offset, ZOOM(y) - glyph->top_offset,
-			ZOOM(glyph->width), ZOOM(glyph->height), tmpDC, 0, 0, SRCCOPY );
+			ZOOM(glyph->width), ZOOM(glyph->height), tmpDC, 0, 0, SRCAND ); // TODO: when we have color, we need a second blit.
 		oldBitmap = SelectObject( tmpDC, oldBitmap );
 
 		t.m.v[4] += ((float)glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
 
-		t.m.v[4] += ZOOM(t.c * t.EffectiveFontHeight());// * t.HorizontalScale();
+		t.m.v[4] += t.c * t.EffectiveFontHeight();// * t.HorizontalScale();
 		if (*content == ' ')
-			t.m.v[4] += ZOOM(t.w * t.EffectiveFontHeight());// * t.HorizontalScale();	
+			t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
 
 		++content;
 	}
