@@ -36,7 +36,7 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 			ZOOM(glyph->width), ZOOM(glyph->height), tmpDC, 0, 0, SRCCOPY );
 		oldBitmap = SelectObject( tmpDC, oldBitmap );
 
-		t.m.v[4] += (glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
+		t.m.v[4] += ((float)glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
 
 		t.m.v[4] += ZOOM(t.c * t.EffectiveFontHeight());// * t.HorizontalScale();
 		if (*content == ' ')
