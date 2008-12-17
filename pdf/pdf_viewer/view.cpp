@@ -373,6 +373,15 @@ static void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDic
 	BitBlt( dc, offset, y, zoomedW, zoomedH, cacheDC, 0, 0, SRCCOPY );
 }
 
+static void ClearPageCache()
+{
+	while( cachedPages.size() )
+	{
+		EvictCacheItem( cachedPages[0] );
+		cachedPages.erase( cachedPages.begin() );
+	}
+}
+
 void ClampToStartOfDocument()
 {
 	while(offsety > PAGE_GAP)
@@ -613,6 +622,33 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 							SetCurrentPage(doc->GetPage(_wtoi(gotoPage) - 1));
 					}
 				}
+				break;
+
+			case VK_F8:
+				{
+					zoom -= 10; 
+					if (zoom < 72) 
+						zoom = 72;
+					ClearPageCache();
+					InvalidateRect( hwnd, 0, true );
+
+					wchar_t sz[128];
+					_snwprintf( sz, 128, L"PDF Viewer - Zoom=%d", zoom );
+					SetWindowText( appHwnd, sz );
+				}
+				break;
+
+			case VK_F9:
+				{
+					zoom += 10;
+					ClearPageCache();
+					InvalidateRect( hwnd, 0, true );
+
+					wchar_t sz[128];
+					_snwprintf( sz, 128, L"PDF Viewer - Zoom=%d", zoom );
+					SetWindowText( appHwnd, sz );
+				}
+
 				break;
 			case VK_UP:
 				offsety += WHEEL_SCROLL_PIXELS;
