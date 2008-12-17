@@ -25,22 +25,24 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 
 	while( *content )
 	{
-		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, (int)(t.EffectiveFontWidth() * zoom * 8 / 9), (int)(t.EffectiveFontHeight() * zoom * 8 / 9) );
+		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, 
+			(int)(t.EffectiveFontWidth() * zoom * 8 / 9), 
+			(int)(t.EffectiveFontHeight() * zoom * 8 / 9) );
 		assert( glyph );
 
-		int x = (int)t.m.v[4];
+		float x = t.m.v[4];
 		int y = (int)(height - t.m.v[5] - t.rise);
 
 		HGDIOBJ oldBitmap = SelectObject( tmpDC, glyph->bitmap );
-		BitBlt( intoDC, ZOOM(x) + glyph->left_offset, ZOOM(y) - glyph->top_offset,
-			ZOOM(glyph->width), ZOOM(glyph->height), tmpDC, 0, 0, SRCAND ); // TODO: when we have color, we need a second blit.
+		BitBlt( intoDC, (int)ZOOM(x) + glyph->left_offset, ZOOM(y) - glyph->top_offset,
+			glyph->width, glyph->height, tmpDC, 0, 0, SRCAND ); // TODO: when we have color, we need a second blit.
 		oldBitmap = SelectObject( tmpDC, oldBitmap );
 
 		t.m.v[4] += ((float)glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
 
-		t.m.v[4] += t.c * t.EffectiveFontHeight();// * t.HorizontalScale();
+		t.m.v[4] += t.c * t.EffectiveFontHeight();
 		if (*content == ' ')
-			t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
+			t.m.v[4] += t.w * t.EffectiveFontHeight();
 
 		++content;
 	}
