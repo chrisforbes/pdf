@@ -7,6 +7,7 @@
 #include "glyphcache.h"
 
 static std::map<FT_Face, std::map<int, std::map<int, std::map<FT_ULong, CachedGlyph> > > > glyphCache;
+size_t numGlyphs = 0;
 
 CachedGlyph* GetGlyph( HDC intoDC, HDC tmpDC, FT_Face face, FT_ULong c, int effectiveWidth, int effectiveHeight )
 {
@@ -30,6 +31,7 @@ CachedGlyph* GetGlyph( HDC intoDC, HDC tmpDC, FT_Face face, FT_ULong c, int effe
 	glyph.advance.x = slot->advance.x;
 	glyph.advance.y = slot->advance.y;
 
+	numGlyphs++;
 	glyph.bitmap = CreateCompatibleBitmap( intoDC, slot->bitmap.width, slot->bitmap.rows );
 	assert( glyph.bitmap );
 	HGDIOBJ oldBitmap = SelectObject( tmpDC, glyph.bitmap );

@@ -263,6 +263,8 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 	return numOperations;
 }
 
+extern size_t numGlyphs;
+
 static void PaintPage( int width, int height, PDictionary page )
 {
 	::Rectangle( cacheDC, 0, 0, ZOOM(width), ZOOM(height) );
@@ -305,7 +307,7 @@ static void PaintPage( int width, int height, PDictionary page )
 	TextOutA( cacheDC, 10, 10, sz, strlen(sz) );
 
 	char fail[128];
-	sprintf( fail, "len: %u ops: %u t: %u ms binds: %d/%u", 0u, numOperations, time, numBinds - nopBinds, numBinds);
+	sprintf( fail, "len: %u ops: %u t: %u ms binds: %d/%u gcache: %u", 0u, numOperations, time, numBinds - nopBinds, numBinds, numGlyphs);
 	TextOutA( cacheDC, 200, 10, fail, strlen(fail) );
 }
 
