@@ -419,20 +419,21 @@ void ClampToEndOfDocument()
 	while( true )
 	{
 		DoubleRect mediaBox = GetPageMediaBox( doc.get(), failPage.get() );
+		double mbHeight = ZOOM(mediaBox.height());
 		PDictionary nextPage = doc->GetNextPage( failPage );
 
 		if (!nextPage)
 		{
-			if (foo + mediaBox.height() + PAGE_GAP < clientRect.bottom)
+			if (foo + mbHeight + PAGE_GAP < clientRect.bottom)
 			{
-				int d = (int)(clientRect.bottom - (foo + mediaBox.height() + PAGE_GAP));
+				int d = (int)(clientRect.bottom - (foo + mbHeight + PAGE_GAP));
 				offsety += d;
 				offsety2 += d;
 			}
 			return;
 		}
 
-		foo += (int)(mediaBox.height() + PAGE_GAP);
+		foo += (int)(mbHeight + PAGE_GAP);
 
 		if (foo > clientRect.bottom)
 			return;
@@ -546,6 +547,7 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			}
 			PaintView( hwnd, dc, &ps );
 			::ReleaseDC( hwnd, dc );
+			::EndPaint( hwnd, &ps );
 			return 0;
 		}
 
