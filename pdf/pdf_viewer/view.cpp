@@ -18,11 +18,14 @@ HCURSOR openHand, closedHand, current;
 #define PAGE_GAP	5
 #define DROP_SHADOW_SIZE	2
 
+int zoom = 108;
+#define ZOOM(k) ((k) * zoom / 72)
+
 extern DoubleRect GetPageMediaBox( Document * doc, Dictionary * page );
 void SetCurrentPage( PDictionary page );	// declared later, this file
 
 // font.cpp
-extern void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height );
+extern void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height, int zoom );
 
 static void DrawString( String str, int width, int height, TextState& t )
 {
@@ -35,7 +38,7 @@ static void DrawString( String str, int width, int height, TextState& t )
 	size_t unescapedLen = UnescapeString( sz, str.start, str.end );
 	sz[unescapedLen] = 0;
 
-	RenderSomeFail( cacheDC, tmpDC, sz, t, height );
+	RenderSomeFail( cacheDC, tmpDC, sz, t, height, zoom );
 }
 
 static void RenderOperatorDebug( String& op, int width, int height, TextState& t )
@@ -262,7 +265,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 
 static void PaintPage( int width, int height, PDictionary page )
 {
-	::Rectangle( cacheDC, 0, 0, width, height );
+	::Rectangle( cacheDC, 0, 0, ZOOM(width), ZOOM(height) );
 	size_t numOperations = 0;
 	size_t numBinds = 0;
 	int nopBinds = 0;
@@ -346,9 +349,12 @@ static void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDic
 		}
 	}
 
+	int zoomedW = ZOOM((int)rect.width());
+	int zoomedH = ZOOM((int)rect.height());
+
 	if( !cacheBitmap )
 	{
-		cacheBitmap = CreateCompatibleBitmap( dc, (int)rect.width(), (int)rect.height() );
+		cacheBitmap = CreateCompatibleBitmap( dc, zoomedW, zoomedH );
 		SelectObject( cacheDC, cacheBitmap );
 		cachedPages.push_back( std::pair<size_t, HBITMAP>( pageNum, cacheBitmap ) );
 
@@ -362,7 +368,7 @@ static void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDic
 	else
 		SelectObject( cacheDC, cacheBitmap );
 
-	BitBlt( dc, offset, y, (int)rect.width(), (int)rect.height(), cacheDC, 0, 0, SRCCOPY );
+	BitBlt( dc, offset, y, zoomedW, zoomedH, cacheDC, 0, 0, SRCCOPY );
 }
 
 void ClampToStartOfDocument()
@@ -376,8 +382,8 @@ void ClampToStartOfDocument()
 		currentPage = prevPage;
 		DoubleRect mediaBox = GetPageMediaBox( doc.get(), prevPage.get() );
 
-		offsety -= (int)mediaBox.height() + PAGE_GAP;
-		offsety2 -= (int)mediaBox.height() + PAGE_GAP;
+		offsety -= ZOOM((int)mediaBox.height()) + PAGE_GAP;
+		offsety2 -=ZOOM((int)mediaBox.height()) + PAGE_GAP;
 	}
 
 	if (!doc->GetPageIndex( currentPage ))
@@ -390,15 +396,15 @@ void ClampToEndOfDocument()
 	while( true )
 	{
 		DoubleRect mediaBox = GetPageMediaBox( doc.get(), currentPage.get() );
-		if( offsety >= -mediaBox.height() )
+		if( offsety >= ZOOM(-mediaBox.height()) )
 			break;
 
 		PDictionary nextPage = doc->GetNextPage( currentPage );
 		if (!nextPage)
 			break;
 
-		offsety += (int)mediaBox.height() + PAGE_GAP;
-		offsety2 +=(int)mediaBox.height() + PAGE_GAP;
+		offsety += ZOOM((int)mediaBox.height()) + PAGE_GAP;
+		offsety2 +=ZOOM((int)mediaBox.height()) + PAGE_GAP;
 
 		currentPage = nextPage;
 	}
@@ -457,25 +463,28 @@ static void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 	{
 		DoubleRect mediaBox = GetPageMediaBox( doc.get(), page.get() );
 
-		double width = mediaBox.width();
+		double width = ZOOM(mediaBox.width());
 		int offset = (int)(clientRect.right - width) / 2;
 
-		double height = mediaBox.height();
+		int height = ZOOM((int)mediaBox.height());
+
+		int mbLeft = ZOOM((int)mediaBox.left);
+		int mbRight = ZOOM((int)mediaBox.right);
 
 		PaintPageFromCache( dc, mediaBox, offset, page, y );
 
-		RECT dropshadow_right = { offset + (int)mediaBox.right, y + DROP_SHADOW_SIZE, 
-			offset + (int)mediaBox.right + DROP_SHADOW_SIZE, y + (int)height + DROP_SHADOW_SIZE };
+		RECT dropshadow_right = { offset + mbRight, y + DROP_SHADOW_SIZE, 
+			offset + mbRight + DROP_SHADOW_SIZE, y + height + DROP_SHADOW_SIZE };
 
-		RECT dropshadow_bottom = { offset + (int)mediaBox.left + DROP_SHADOW_SIZE, y + (int)height, 
-			offset + (int)mediaBox.right, y + (int)height + DROP_SHADOW_SIZE };
+		RECT dropshadow_bottom = { offset + mbLeft + DROP_SHADOW_SIZE, y + height, 
+			offset + mbRight, y + height + DROP_SHADOW_SIZE };
 
 		RECT dropshadow_unfail_right = { dropshadow_right.left, dropshadow_right.top - DROP_SHADOW_SIZE, dropshadow_right.right,
 			dropshadow_right.top };
 
 		HBRUSH black = (HBRUSH)::GetStockObject(BLACK_BRUSH);
 
-		y += (int)height;
+		y += height;
 
 		RECT fail = { 0, y, clientRect.right, y + PAGE_GAP };
 		FillRect( dc, &fail, (HBRUSH)(COLOR_APPWORKSPACE + 1) );

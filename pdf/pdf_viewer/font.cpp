@@ -12,32 +12,35 @@
 
 #include "glyphcache.h"
 
+#define ZOOM(k) ((k) * zoom / 72)
+
 static FT_Face face = 0;
 extern PDocument doc;
 
 extern FT_Face LoadFontFromCache( PDictionary fontDescriptor, XrefTable const & xrefTable );
 
-void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height )
+void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height, int zoom )
 {
 	assert( face && "This stuff needs to be initialized!" );
 
 	while( *content )
 	{
-		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, (int)(64 * t.EffectiveFontWidth()), (int)(64 * t.EffectiveFontHeight()) );
+		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, (int)(t.EffectiveFontWidth() * zoom * 8 / 9), (int)(t.EffectiveFontHeight() * zoom * 8 / 9) );
 		assert( glyph );
 
 		int x = (int)t.m.v[4];
 		int y = (int)(height - t.m.v[5] - t.rise);
 
 		HGDIOBJ oldBitmap = SelectObject( tmpDC, glyph->bitmap );
-		BitBlt( intoDC, x + glyph->left_offset, y - glyph->top_offset, glyph->width, glyph->height, tmpDC, 0, 0, SRCCOPY );
+		BitBlt( intoDC, ZOOM(x) + glyph->left_offset, ZOOM(y) - glyph->top_offset,
+			ZOOM(glyph->width), ZOOM(glyph->height), tmpDC, 0, 0, SRCCOPY );
 		oldBitmap = SelectObject( tmpDC, oldBitmap );
 
-		t.m.v[4] += (glyph->advance.x / 64.0);	// what a hack, subpixel failure, etc
+		t.m.v[4] += (glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
 
-		t.m.v[4] += t.c * t.EffectiveFontHeight();// * t.HorizontalScale();
+		t.m.v[4] += ZOOM(t.c * t.EffectiveFontHeight());// * t.HorizontalScale();
 		if (*content == ' ')
-			t.m.v[4] += t.w * t.EffectiveFontHeight();// * t.HorizontalScale();	
+			t.m.v[4] += ZOOM(t.w * t.EffectiveFontHeight());// * t.HorizontalScale();	
 
 		++content;
 	}
