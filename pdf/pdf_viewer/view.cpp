@@ -395,6 +395,10 @@ static void PaintPageFromCache( HDC dc, DoubleRect const& rect, int offset, PDic
 	int zoomedW = ZOOM((int)rect.width());
 	int zoomedH = ZOOM((int)rect.height());
 
+	char sz[64];
+	sprintf( sz, "PDF Viewer - %dx%d page", zoomedW, zoomedH );
+	SetWindowTextA( appHwnd, sz );
+
 	if( !cacheBitmap )
 	{
 		cacheBitmap = CreateCompatibleBitmap( dc, zoomedW, zoomedH );
