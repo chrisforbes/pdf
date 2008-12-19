@@ -28,7 +28,7 @@ void SetCurrentPage( PDictionary page );	// declared later, this file
 extern void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, int height, int zoom );
 
 // image.cpp
-extern void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int pageHeight, XrefTable const & xrefTable, int zoom );
+extern void RenderImage( HDC intoDC, PStream image, const Matrix & ctm, int pageHeight, XrefTable const & xrefTable, int zoom );
 
 static void DrawString( String str, int width, int height, TextState& t )
 {
@@ -265,7 +265,7 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 					break;
 
 				if( type->str == String( "Image" ) )
-					RenderImage( cacheDC, tmpDC, obj, ctm, height, doc->xrefTable, zoom );
+					RenderImage( cacheDC, obj, ctm, height, doc->xrefTable, zoom );
 			}
 		case 'c':
 			if( op.end == op.start + 2 && op.start[1] == 'm' )

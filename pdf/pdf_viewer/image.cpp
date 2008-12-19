@@ -13,7 +13,7 @@ static int saturate( int k )
 	return k;
 }
 
-void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int pageHeight, XrefTable const & xrefTable, int zoom )
+void RenderImage( HDC intoDC, PStream image, const Matrix & ctm, int pageHeight, XrefTable const & xrefTable, int zoom )
 {
 	PObject colorSpace = image->dict->Get( "ColorSpace", xrefTable );
 	PNumber bits = image->dict->Get<Number>( "BitsPerComponent", xrefTable );
@@ -23,11 +23,10 @@ void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int 
 	int w = width->num;
 	int h = height->num;
 
-	HBITMAP bitmap = CreateCompatibleBitmap( intoDC, width->num, height->num );
-	HGDIOBJ old = SelectObject( tmpDC, bitmap );
-
 	size_t length;
 	const unsigned char* imageBytes = (const unsigned char*)image->GetStreamBytes( xrefTable, &length );
+
+	unsigned* xRGB = new unsigned[ w*h ];
 
 	if( length == w * h * 4 )
 	{
@@ -43,7 +42,7 @@ void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int 
 				int g = (255-k)*(255-imageBytes[ (y*w+x)*4 + 1 ]) / 255;
 				int b = (255-k)*(255-imageBytes[ (y*w+x)*4 + 2 ]) / 255;
 
-				SetPixel( tmpDC, x, y, (b * 0x100 + g) * 0x100 + r );
+				xRGB[y*w+x] = (((r << 8) + g) << 8) + b
 			}
 		}
 	}
@@ -52,15 +51,17 @@ void RenderImage( HDC intoDC, HDC tmpDC, PStream image, const Matrix & ctm, int 
 		// assume RGB
 		for( int y = 0 ; y < h ; y++ )
 			for( int x = 0 ; x < w ; x++ )
-				SetPixel( tmpDC, x, y, 0xffffff & *(COLORREF*)(imageBytes + (y*w+x)*3) );
+				xRGB[y*w+x] = ((((imageBytes[(y*w+x)*3] << 8) + imageBytes[(y*w+x)*3+1]) << 8) + imageBytes[(y*w+x)*3+2]);
 	}
 	else
 	{
 		// o_O
 	}
 
-	StretchBlt( intoDC, ZOOM(ctm.v[4]), ZOOM(pageHeight - ctm.v[5] - ctm.v[3]), ZOOM(ctm.v[0]), ZOOM(ctm.v[3]), tmpDC, 0, 0, w, h, SRCCOPY );
+	BITMAPINFOHEADER bmi = { sizeof( BITMAPINFOHEADER ), w, -h, 1, 32, BI_RGB };
 
-	SelectObject( tmpDC, old );
-	DeleteObject( bitmap );
+	StretchDIBits( intoDC, ZOOM(ctm.v[4]), ZOOM(pageHeight - ctm.v[5] - ctm.v[3]), ZOOM(ctm.v[0]), ZOOM(ctm.v[3]), 0, 0, w, h ,xRGB, (BITMAPINFO*)&bmi, DIB_RGB_COLORS, SRCCOPY );
+
+	delete[] xRGB;
+	image->EvictCache();
 }
