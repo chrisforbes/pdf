@@ -13,6 +13,11 @@ extern PDocument doc;
 int offsety = 0;
 int offsety2 = 0;	// hax, fix names
 int haxy = 0;
+
+int offsetx = 0;
+int offsetx2 = 0;
+int haxx = 0;
+
 HCURSOR openHand, closedHand, current;
 
 #define PAGE_GAP	5
@@ -66,7 +71,11 @@ extern HWND appHwnd;
 double ToNumber( const ContentStreamElement& cse )
 {
 	char* end = const_cast< char* >( cse.end );
-	double ret = strtod( cse.start, &end );
+	double ret;
+	if (!memchr( cse.start, '.', cse.end - cse.start ))
+		ret = strtol( cse.start, &end, 10 );
+	else
+		ret = strtod( cse.start, &end );
 	assert( end == cse.end && "Invalid number" );
 	return ret;
 }
@@ -172,22 +181,22 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			case '*':
 				// next line based on leading
 				assert( num_args == 0 );
-				t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
+				t.lm.v[5] -= t.lm.v[3] * t.l;
 				t.m = t.lm;
 				break;
 			case 'D':
 				// next line, setting leading
 				assert( num_args == 2 );
 				t.l = -ToNumber( args[1] );		// todo: check this
-				t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
-				t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
+				t.lm.v[4] += t.lm.v[0] * ToNumber( args[0] );
+				t.lm.v[5] += t.lm.v[3] * ToNumber( args[1] );
 				t.m = t.lm;
 				break;
 			case 'd':
 				// next line with explicit positioning, preserve leading
 				assert( num_args == 2 );
-				t.lm.v[4] += /*t.fontSize * */t.lm.v[0] * ToNumber( args[0] );
-				t.lm.v[5] += /*t.fontSize * */t.lm.v[3] * ToNumber( args[1] );
+				t.lm.v[4] += t.lm.v[0] * ToNumber( args[0] );
+				t.lm.v[5] += t.lm.v[3] * ToNumber( args[1] );
 				t.m = t.lm;
 				break;
 			case 'J':
@@ -228,23 +237,21 @@ static size_t PaintPageContent( int width, int height, PDictionary page, PStream
 			}
 			break;
 		case '\'':
-			//RenderOperatorDebug( op, width, height, t );
-
 			assert( num_args == 1 );
-			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
+			t.lm.v[5] -= t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( args[0].ToString(), width, height, t );
 			break;
-		case '"':
-			//RenderOperatorDebug( op, width, height, t );
 
+		case '"':
 			assert( num_args == 3 );
 			t.w = ToNumber( args[0] );
 			t.c = ToNumber( args[1] );
-			t.lm.v[5] -= /*t.fontSize * */t.lm.v[3] * t.l;
+			t.lm.v[5] -= t.lm.v[3] * t.l;
 			t.m = t.lm;
 			DrawString( args[2].ToString(), width, height, t );
 			break;
+
 		case 'D':
 			assert( op.end >= op.start + 2 );
 			if( op.start[1] == 'o' && op.end == op.start + 2 )
@@ -320,16 +327,18 @@ static void PaintPage( int width, int height, PDictionary page )
 	PStream content = page->Get<Stream>( "Contents", doc->xrefTable );
 	if (content)
 		numOperations += PaintPageContent( width, height, page, content, t, numBinds, nopBinds );
-
-	PArray array = page->Get<Array>( "Contents", doc->xrefTable );
-	if (array)
+	else
 	{
-		for( std::vector<PObject>::iterator it = array->elements.begin();
-			it != array->elements.end(); it++ )
+		PArray array = page->Get<Array>( "Contents", doc->xrefTable );
+		if (array)
 		{
-			PStream stream = Object::ResolveIndirect_<Stream>( *it, doc->xrefTable );
-			if (stream)
-				numOperations += PaintPageContent( width, height, page, stream, t, numBinds, nopBinds );
+			for( std::vector<PObject>::iterator it = array->elements.begin();
+				it != array->elements.end(); it++ )
+			{
+				PStream stream = Object::ResolveIndirect_<Stream>( *it, doc->xrefTable );
+				if (stream)
+					numOperations += PaintPageContent( width, height, page, stream, t, numBinds, nopBinds );
+			}
 		}
 	}
 
@@ -521,7 +530,7 @@ static void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 		DoubleRect mediaBox = GetPageMediaBox( doc.get(), page.get() );
 
 		double width = ZOOM(mediaBox.width());
-		int offset = (int)(clientRect.right - width) / 2;
+		int offset = offsetx + (int)(clientRect.right - width) / 2;
 
 		int height = ZOOM((int)mediaBox.height());
 
@@ -541,10 +550,17 @@ static void PaintView( HWND hwnd, HDC dc, PAINTSTRUCT const * ps )
 
 		HBRUSH black = (HBRUSH)::GetStockObject(BLACK_BRUSH);
 
+		RECT left_chunk = { 0, y, offset, y + height };
+		RECT right_chunk = { offset + mbRight + DROP_SHADOW_SIZE, 
+			y, clientRect.right, y + height };
+
 		y += height;
 
 		RECT fail = { 0, y, clientRect.right, y + PAGE_GAP };
 		FillRect( dc, &fail, (HBRUSH)(COLOR_APPWORKSPACE + 1) );
+
+		FillRect( dc, &left_chunk, (HBRUSH)(COLOR_APPWORKSPACE + 1 ) );
+		FillRect( dc, &right_chunk, (HBRUSH)(COLOR_APPWORKSPACE + 1 ) );
 
 		FillRect( dc, &dropshadow_right, black );
 		FillRect( dc, &dropshadow_bottom, black );
@@ -611,7 +627,9 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 			SetFocus( hwnd );
 			POINTS fail = MAKEPOINTS( lp );
 			haxy = fail.y;
+			haxx = fail.x;
 			offsety2 = offsety;
+			offsetx2 = offsetx;
 			SetCursor( current = closedHand );
 			return 0;
 		}
@@ -738,6 +756,7 @@ LRESULT __stdcall ViewWndProc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
 
 			POINTS fail = MAKEPOINTS( lp );
 			offsety = (fail.y - haxy) + offsety2;
+			offsetx = (fail.x - haxx) + offsetx2;
 			::InvalidateRect( hwnd, 0, true );
 			return 0;
 		}

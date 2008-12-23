@@ -42,7 +42,7 @@ void RenderImage( HDC intoDC, PStream image, const Matrix & ctm, int pageHeight,
 				int g = (255-k)*(255-imageBytes[ (y*w+x)*4 + 1 ]) / 255;
 				int b = (255-k)*(255-imageBytes[ (y*w+x)*4 + 2 ]) / 255;
 
-				xRGB[y*w+x] = (((r << 8) + g) << 8) + b
+				xRGB[y*w+x] = (((r << 8) + g) << 8) + b;
 			}
 		}
 	}
