@@ -25,11 +25,12 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 
 	while( *content )
 	{
-		CachedGlyph* glyphWidth = GetGlyph( intoDC, tmpDC, face, *content, 
+		unsigned long c = (unsigned long)(unsigned char) *content;
+		CachedGlyph* glyphWidth = GetGlyph( intoDC, tmpDC, face, c, 
 			(int)(t.EffectiveFontWidth() * 64), 
 			(int)(t.EffectiveFontHeight() * 64) );
 		assert( glyphWidth );
-		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, 
+		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, c, 
 			(int)(t.EffectiveFontWidth() * zoom * 8 / 9), 
 			(int)(t.EffectiveFontHeight() * zoom * 8 / 9) );
 		assert( glyph );

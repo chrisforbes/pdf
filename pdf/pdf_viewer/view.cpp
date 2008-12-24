@@ -68,7 +68,7 @@ static void RenderOperatorDebug( String& op, int width, int height, TextState& t
 extern void BindFont( PDictionary page, TextState& t, int& nopBinds );
 extern HWND appHwnd;
 
-double ToNumber( const ContentStreamElement& cse )
+static double ToNumber( const ContentStreamElement& cse )
 {
 	char* end = const_cast< char* >( cse.end );
 	double ret;
