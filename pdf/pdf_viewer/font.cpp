@@ -25,6 +25,10 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 
 	while( *content )
 	{
+		CachedGlyph* glyphWidth = GetGlyph( intoDC, tmpDC, face, *content, 
+			(int)(t.EffectiveFontWidth() * 64), 
+			(int)(t.EffectiveFontHeight() * 64) );
+		assert( glyphWidth );
 		CachedGlyph* glyph = GetGlyph( intoDC, tmpDC, face, *content, 
 			(int)(t.EffectiveFontWidth() * zoom * 8 / 9), 
 			(int)(t.EffectiveFontHeight() * zoom * 8 / 9) );
@@ -38,7 +42,7 @@ void RenderSomeFail( HDC intoDC, HDC tmpDC, char const * content, TextState& t, 
 			glyph->width, glyph->height, tmpDC, 0, 0, SRCAND ); // TODO: when we have color, we need a second blit.
 		oldBitmap = SelectObject( tmpDC, oldBitmap );
 
-		t.m.v[4] += ((float)glyph->advance.x * 9 / (8 * zoom) ); // what a hack, subpixel failure, etc
+		t.m.v[4] += ((double)glyphWidth->advance.x / 64);
 
 		t.m.v[4] += t.c * t.EffectiveFontHeight();
 		if (*content == ' ')
