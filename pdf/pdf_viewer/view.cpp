@@ -584,9 +584,13 @@ INT_PTR __stdcall GotoPageDialogProc( HWND diagHwnd, UINT msg, WPARAM wp, LPARAM
 	case WM_INITDIALOG:
 		{
 			wchar_t range[10];
-			wsprintf(range, L"1-%d", doc->GetPageCount());
+			wsprintf(range, L"of %d", doc->GetPageCount());
 			SetDlgItemText(diagHwnd, IDC_VALIDPAGES, range);
 			SetDlgItemText(diagHwnd, IDC_PAGENUMBER, L"");
+
+			//Set focus to page number edit control
+			if (GetDlgCtrlID((HWND) wp) != IDC_PAGENUMBER)
+				SetFocus(GetDlgItem(diagHwnd, IDC_PAGENUMBER));
 		}
 		break;
 	case WM_COMMAND:
